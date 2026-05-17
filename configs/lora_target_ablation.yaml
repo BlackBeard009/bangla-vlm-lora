@@ -1,0 +1,60 @@
+# LoRA target-module ablation on GiT-base + synthetic Bangla.
+#
+# Goal: demonstrate that no choice of LoRA target alone produces Bangla output,
+# because the GiT vocabulary (BERT-base-uncased, 30522 English wordpieces)
+# physically cannot represent Bangla words. This motivates the vocabulary
+# extension contribution (C1).
+#
+# Each variant trains from the same starting weights, same seed, same data.
+
+model:
+  name: microsoft/git-base
+  dtype: float32
+
+training:
+  steps: 50
+  batch_size: 4
+  lr: 1.0e-4
+  weight_decay: 0.0
+  log_every: 10
+
+generation:
+  max_new_tokens: 30
+  num_beams: 4
+
+seed: 42
+
+# Three variants of progressively more adaptable parameters.
+# Hypothesis: all three still fail to produce real Bangla.
+variants:
+  - id: v1_attn
+    label: "attn (q,k,v)"
+    lora:
+      rank: 8
+      alpha: 16
+      dropout: 0.05
+      target_modules: [query, key, value]
+      modules_to_save: null
+
+  - id: v2_attn_head
+    label: "attn + LM head (fully retrained)"
+    lora:
+      rank: 8
+      alpha: 16
+      dropout: 0.05
+      target_modules: [query, key, value]
+      # `output` is the GiT LM head: Linear(768 -> 30522).
+      # Use modules_to_save (not LoRA) because "output" as a suffix collides
+      # with the GitSelfOutput composite block inside attention.
+      modules_to_save: [output]
+
+  - id: v3_attn_head_emb
+    label: "attn + LM head + word embeddings (fully retrained)"
+    lora:
+      rank: 8
+      alpha: 16
+      dropout: 0.05
+      target_modules: [query, key, value]
+      # Both head and input embeddings fully trainable. Maximally permissive
+      # configuration short of full fine-tuning.
+      modules_to_save: [output, word_embeddings]

@@ -38,9 +38,14 @@ def apply_lora(
     alpha: int = 16,
     dropout: float = 0.05,
     target_modules: Sequence[str] = GIT_TEXT_TARGETS,
+    modules_to_save: Sequence[str] | None = None,
 ) -> GitBundle:
     """Wrap `bundle.model` in a PEFT LoRA adapter.
 
+    Args:
+        target_modules: module name suffixes to LoRA-decompose.
+        modules_to_save: full modules to fully retrain (no LoRA decomposition).
+            Use for embedding layers or when you want the LM head fully free.
     Returns a new bundle with the wrapped model. The processor is unchanged.
     """
     config = LoraConfig(
@@ -49,6 +54,7 @@ def apply_lora(
         lora_dropout=dropout,
         bias="none",
         target_modules=list(target_modules),
+        modules_to_save=list(modules_to_save) if modules_to_save else None,
         # Intentionally no task_type — see module docstring.
     )
     lora_model = get_peft_model(bundle.model, config)
