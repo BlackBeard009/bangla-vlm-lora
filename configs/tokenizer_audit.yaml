@@ -21,6 +21,11 @@ corpus:
 tokenizers:
   - name: microsoft/git-base
     role: "VLM (primary target) — English BERT WordPiece"
+  - kind: bridged
+    name: "microsoft/git-base + csebuetnlp/banglabert (bridged)"
+    role: "VLM — bridged: GiT vocab + BanglaBERT wordpieces (C1)"
+    base: microsoft/git-base
+    donor: csebuetnlp/banglabert
   - name: Salesforce/blip-image-captioning-base
     role: "VLM — English BERT WordPiece"
   - name: microsoft/Florence-2-base

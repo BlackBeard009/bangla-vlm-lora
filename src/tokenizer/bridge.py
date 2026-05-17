@@ -186,6 +186,24 @@ def _build_extended_tokenizer(base_tokenizer, new_tokens: list[str]):
     )
 
 
+def build_bridged_tokenizer(
+    base_tokenizer_name: str,
+    donor_tokenizer_name: str = "csebuetnlp/banglabert",
+):
+    """Construct the bridged tokenizer without touching any model.
+
+    Mirrors the tokenizer half of `bridge_vocabulary` (vocab extension only —
+    no embedding resize, no model load). Used by the fertility audit to score
+    the bridged tokenizer alongside off-the-shelf ones.
+    """
+    base = AutoTokenizer.from_pretrained(base_tokenizer_name)
+    existing = set(base.get_vocab().keys())
+    new_tokens, _ = select_bangla_tokens_from_donor(donor_tokenizer_name, existing)
+    if not new_tokens:
+        return base
+    return _build_extended_tokenizer(base, new_tokens)
+
+
 def bridge_vocabulary(
     bundle,
     *,

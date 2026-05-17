@@ -5,6 +5,7 @@ Corpus: **2000** Bangla sentences.
 | Tokenizer | Role | Vocab | BN vocab | Fertility ↓ | UNK% ↓ | Round-trip ↑ |
 |---|---|---|---|---|---|---|
 | microsoft/git-base | VLM (primary target) — English BERT WordPiece | 30522 | 72 | 4.880 | 2.50% | 77.37% |
+| microsoft/git-base + csebuetnlp/banglabert (bridged) | VLM — bridged: GiT vocab + BanglaBERT wordpieces (C1) | 59577 | 29127 | 1.333 | 0.50% | 97.17% |
 | Salesforce/blip-image-captioning-base | VLM — English BERT WordPiece | 30522 | 72 | 4.880 | 2.50% | 77.37% |
 | microsoft/Florence-2-base | VLM — BART (English) | 50265 | 0 | 14.167 | 0.00% | 100.00% |
 | Salesforce/blip2-opt-2.7b | VLM — OPT (English) | 50266 | 0 | 14.167 | 0.00% | 100.00% |

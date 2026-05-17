@@ -81,31 +81,19 @@ def _count_bangla_vocab(tok) -> int:
     return sum(1 for piece in vocab.keys() if _has_bangla(piece))
 
 
-def audit_tokenizer(
-    name: str,
-    role: str,
-    texts: list[str],
-    *,
-    trust_remote_code: bool = False,
-) -> TokenizerStats:
-    """Run the audit for a single tokenizer.
+def _failed_stats(name: str, role: str, error: str) -> TokenizerStats:
+    return TokenizerStats(
+        name=name, role=role,
+        vocab_size=0, bn_vocab_tokens=0,
+        n_input_words=0, n_subtokens=0, n_unk=0,
+        fertility=float("nan"), unk_rate=float("nan"),
+        roundtrip_preserved=float("nan"),
+        failed=True, error=error,
+    )
 
-    Errors are caught so one bad tokenizer doesn't halt the suite.
-    """
-    try:
-        tok = AutoTokenizer.from_pretrained(
-            name, trust_remote_code=trust_remote_code, use_fast=True
-        )
-    except Exception as e:
-        return TokenizerStats(
-            name=name, role=role,
-            vocab_size=0, bn_vocab_tokens=0,
-            n_input_words=0, n_subtokens=0, n_unk=0,
-            fertility=float("nan"), unk_rate=float("nan"),
-            roundtrip_preserved=float("nan"),
-            failed=True, error=f"load_failed: {type(e).__name__}: {e}",
-        )
 
+def _stats_for_tokenizer(tok, name: str, role: str, texts: list[str]) -> TokenizerStats:
+    """Compute audit statistics for an already-loaded tokenizer."""
     unk_id = tok.unk_token_id  # may be None for byte-level BPE
     n_words = _whitespace_word_count(texts)
     n_sub = 0
@@ -146,20 +134,69 @@ def audit_tokenizer(
     )
 
 
+def audit_tokenizer(
+    name: str,
+    role: str,
+    texts: list[str],
+    *,
+    trust_remote_code: bool = False,
+) -> TokenizerStats:
+    """Run the audit for a single HuggingFace tokenizer.
+
+    Errors are caught so one bad tokenizer doesn't halt the suite.
+    """
+    try:
+        tok = AutoTokenizer.from_pretrained(
+            name, trust_remote_code=trust_remote_code, use_fast=True
+        )
+    except Exception as e:
+        return _failed_stats(name, role, f"load_failed: {type(e).__name__}: {e}")
+    return _stats_for_tokenizer(tok, name, role, texts)
+
+
+def _audit_bridged(spec: dict, texts: list[str]) -> TokenizerStats:
+    """Build the bridged tokenizer described by `spec` and audit it."""
+    from src.tokenizer.bridge import build_bridged_tokenizer  # local: avoid cycle
+    name = spec["name"]
+    role = spec.get("role", "")
+    try:
+        tok = build_bridged_tokenizer(
+            base_tokenizer_name=spec["base"],
+            donor_tokenizer_name=spec["donor"],
+        )
+    except Exception as e:
+        return _failed_stats(name, role, f"bridge_failed: {type(e).__name__}: {e}")
+    return _stats_for_tokenizer(tok, name, role, texts)
+
+
 def audit_corpus(
     tokenizer_specs: list[dict],
     texts: list[str],
 ) -> list[TokenizerStats]:
-    """Audit every tokenizer in `tokenizer_specs` against `texts`."""
+    """Audit every tokenizer in `tokenizer_specs` against `texts`.
+
+    Each spec is a dict with `name`, `role`, and optional `kind`:
+      - kind="huggingface" (default): load via AutoTokenizer.from_pretrained
+      - kind="bridged":               build via build_bridged_tokenizer;
+                                      requires `base` and `donor` fields
+    """
     results = []
     for spec in tokenizer_specs:
         print(f"[audit] {spec['name']} ...", flush=True)
-        result = audit_tokenizer(
-            name=spec["name"],
-            role=spec.get("role", ""),
-            texts=texts,
-            trust_remote_code=spec.get("trust_remote_code", False),
-        )
+        kind = spec.get("kind", "huggingface")
+        if kind == "bridged":
+            result = _audit_bridged(spec, texts)
+        elif kind == "huggingface":
+            result = audit_tokenizer(
+                name=spec["name"],
+                role=spec.get("role", ""),
+                texts=texts,
+                trust_remote_code=spec.get("trust_remote_code", False),
+            )
+        else:
+            result = _failed_stats(
+                spec["name"], spec.get("role", ""), f"unknown kind: {kind!r}"
+            )
         if result.failed:
             print(f"  FAILED: {result.error}", flush=True)
         else:

@@ -1,5 +1,6 @@
 name,role,vocab_size,bn_vocab_tokens,n_input_words,n_subtokens,n_unk,fertility,unk_rate,roundtrip_preserved,failed,error
 microsoft/git-base,VLM (primary target) — English BERT WordPiece,30522,72,28584,139486,3494,4.87986286034145,0.02504910887114119,0.7736762539049016,False,
+microsoft/git-base + csebuetnlp/banglabert (bridged),VLM — bridged: GiT vocab + BanglaBERT wordpieces (C1),59577,29127,28584,38106,190,1.3331234256926952,0.004986091429171259,0.971744306594067,False,
 Salesforce/blip-image-captioning-base,VLM — English BERT WordPiece,30522,72,28584,139486,3494,4.87986286034145,0.02504910887114119,0.7736762539049016,False,
 microsoft/Florence-2-base,VLM — BART (English),50265,0,28584,404946,0,14.166876574307304,0.0,1.0,False,
 Salesforce/blip2-opt-2.7b,VLM — OPT (English),50266,0,28584,404946,0,14.166876574307304,0.0,1.0,False,
