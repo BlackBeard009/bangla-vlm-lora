@@ -1,0 +1,53 @@
+# Decode-side ablation on the saved banglalekha_full adapter.
+#
+# No retraining. Loads the bridged-GiT + LoRA adapter and re-runs
+# generation on the first N held-out val images with three decoding
+# configurations to test whether output diversity / fluency improves
+# without changing the model.
+
+adapter:
+  # Bridged-GiT + LoRA produced by scripts/banglalekha_slice.py on
+  # configs/banglalekha_full.yaml. Resolved via paths.EXP_CHECKPOINTS.
+  checkpoint_subdir: banglalekha_full
+
+model:
+  name: microsoft/git-base
+  dtype: float32
+
+data:
+  captions_path: /content/drive/MyDrive/bangla-vlm-lora/data/raw/banglalekha/captions.json
+  images_dir: /content/banglalekha_raw/images
+  val_fraction: 0.1
+  n_samples: 8                # the same first-8 val items shown in samples.json
+  caption_selection: first
+
+seed: 42
+
+variants:
+  - name: baseline_beam4
+    description: Matches training-time decode (config used for the headline
+      sample table). Beam 4, no penalties, no sampling.
+    params:
+      max_new_tokens: 30
+      num_beams: 4
+  - name: beam4_penalties
+    description: Beam 4 plus repetition + length nudges. Should kill the
+      danda-repetition loop seen on 45.png and push outputs past 2-3
+      wordpieces.
+    params:
+      max_new_tokens: 30
+      num_beams: 4
+      no_repeat_ngram_size: 3
+      length_penalty: 1.5
+      early_stopping: true
+  - name: topp_sample
+    description: Nucleus sampling. Trades safety for diversity; expected
+      to be the noisiest output but the most lexically varied.
+    params:
+      max_new_tokens: 30
+      do_sample: true
+      top_p: 0.9
+      num_beams: 1
+
+output:
+  results_subdir: decode_ablation

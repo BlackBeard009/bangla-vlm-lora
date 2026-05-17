@@ -189,11 +189,12 @@ python scripts/banglalekha_slice.py --config configs/banglalekha_full.yaml
 The val curve has plateaued, so longer training at this configuration
 will not help. Cheapest knobs in order of expected impact:
 
-1. **Decode-side fixes (no retraining).** Re-run generation on the
-   saved adapter with `do_sample=True, top_p=0.9`, or beam=4 plus
-   `no_repeat_ngram_size=3, length_penalty=1.5`. Should immediately
-   improve fluency and kill repetition loops; expected to also raise
-   any per-token diversity metric.
+1. ~~**Decode-side fixes (no retraining).**~~ **Done** — see
+   [`decode_ablation.md`](decode_ablation.md). Headline: the
+   `45.png` danda-repetition loop is purely a decode artifact and
+   `no_repeat_ngram_size=3` removes it; top-p sampling surfaces
+   vocabulary that beam search hides (`ছেলে`, `মহিলা`, `শরীরে`, ...);
+   length penalty alone barely changes lengths (corpus prior wins).
 2. **Unfreeze image-tower projections.** Add the CLIP-ViT q/k/v
    projections to `target_modules`. Visual signal is the
    most-likely bottleneck on image-specific outputs (`45.png` getting
