@@ -1,0 +1,46 @@
+# Bridged-GiT + LoRA ablation: closing the motivation chain.
+#
+# Extends GiT's vocabulary with Bangla wordpieces from BanglaBERT, initializes
+# the new embedding rows under three strategies, then trains with LoRA on
+# attention plus modules_to_save on (output, word_embeddings) — i.e. the
+# strongest of the prior ablation's variants, but now with a Bangla-capable
+# vocabulary.
+#
+# Hypothesis: real Bangla tokens appear in generated output, not just '##াাাা'.
+
+model:
+  name: microsoft/git-base
+  dtype: float32
+  # Fast tokenizer (Rust) panics on encode after adding many Bangla tokens.
+  # Slow tokenizer is correct; throughput cost is small for caption-length text.
+  use_fast_tokenizer: false
+
+bridge:
+  donor_tokenizer: csebuetnlp/banglabert
+  donor_model_for_init: csebuetnlp/banglabert
+
+lora:
+  rank: 8
+  alpha: 16
+  dropout: 0.05
+  target_modules: [query, key, value]
+  modules_to_save: [output, word_embeddings]
+
+training:
+  steps: 50
+  batch_size: 4
+  lr: 1.0e-4
+  weight_decay: 0.0
+  log_every: 10
+
+generation:
+  max_new_tokens: 30
+  num_beams: 4
+
+seed: 42
+
+# Embedding-init strategies to compare. Each is trained from scratch.
+init_strategies:
+  - random
+  - mean
+  - donor
