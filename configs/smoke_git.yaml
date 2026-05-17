@@ -1,0 +1,21 @@
+# Smoke-test config: verify GiT-base trains end-to-end on synthetic Bangla data.
+#
+# This is NOT a research run. Goal: catch pipeline breakage (tokenizer crashes,
+# dtype mismatches, OOM, generate() failures) before investing in real data.
+
+model:
+  name: microsoft/git-base
+  dtype: float32
+
+training:
+  steps: 50
+  batch_size: 4
+  lr: 5.0e-5
+  weight_decay: 0.01
+  log_every: 5
+
+generation:
+  max_new_tokens: 30
+  num_beams: 4
+
+seed: 42
