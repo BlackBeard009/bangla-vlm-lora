@@ -89,16 +89,34 @@ highest-frequency token in our tiny dataset. This is a property of the
 smoke-test data, not the bridge. With real BanglaLekha-scale data we'd
 expect actual Bangla words (nouns, verbs).
 
-### 3. BertTokenizer normalization drops some diacritics
+### 3. BertTokenizer normalization drops some diacritics — FIXED 2026-05-17
 
-Decoding our reference caption through the new tokenizer gives:
-- Input: `একটি লাল গাড়ি রাস্তায় চলছে।`
-- Decoded: `একটি লাল গাডি রাসতায চলছে ।`
+Originally, the bridged tokenizer was reloaded with BERT's default
+`do_lower_case=True` and `strip_accents=None` (which becomes True under
+lowercasing). Both `়` (nukta) and `্` (virama) — and `ঁ` candrabindu —
+fall in Unicode category `Mn` and were stripped by `BasicTokenizer`, so
+words like `গাড়ি`, `রাস্তায়`, `চাঁদ` could never hit their dedicated
+donor wordpieces.
 
-The `়` (nukta) and `্` (virama/halant) are lost during BertTokenizer's
-`BasicTokenizer` normalization. This is fixable by passing
-`do_lower_case=False, strip_accents=False, tokenize_chinese_chars=False`
-when constructing the tokenizer. Defer to real-data experiments.
+`_build_extended_tokenizer` now reloads with
+`do_lower_case=False, strip_accents=False, tokenize_chinese_chars=False`.
+The normalizer becomes
+`BertNormalizer(clean_text=True, handle_chinese_chars=False, strip_accents=False, lowercase=False)`,
+and diacritic-bearing words map cleanly to single donor tokens:
+
+| Word | Before fix | After fix |
+|---|---|---|
+| `গাড়ি` | `['গা', '##ডি']` | `['গাড়ি']` |
+| `রাস্তায়` | `['রাস', '##তা', '##য']` | `['রাস্তায়']` |
+| `চাঁদ` | `['চাদ']` | `['চাঁদ']` |
+| `হাঁটছে` | `['হাট', '##ছে']` | `['হাঁটছে']` |
+| `বিড়াল` | `['বিড', '##াল']` | `['বিড়াল']` |
+| `পার্কে` | `['পার', '##কে']` | `['পার্কে']` |
+
+All 16 synthetic captions now round-trip losslessly. Re-running the
+bridged ablation with this fix is the next step before paper-grade
+numbers; the qualitative claim from this experiment (Bangla emerges
+post-bridge) is unaffected.
 
 ## Engineering note: AddedVocabulary panic
 
@@ -131,9 +149,7 @@ table copied to `results_table.md` here.
 2. **Proper init-strategy ablation.** Either with `mean_resizing=False`
    on the resize call, or by freezing embeddings (no `modules_to_save`)
    so init survives. Real differences will only show up with these.
-3. **Tokenizer normalization fix.** Reconstruct the tokenizer with
-   `do_lower_case=False, strip_accents=False` to preserve `়`, `্`,
-   etc. Then re-run the fertility audit on the bridged tokenizer.
-4. **Bridged-only fertility audit.** Add the bridged GiT tokenizer as a
+3. **Bridged-only fertility audit.** Add the bridged GiT tokenizer as a
    new row in `tokenizer_audit_results.md` to demonstrate the
-   improvement.
+   improvement. (The normalization fix above should drop fertility from
+   the unbridged 4.88 toward BanglaBERT's 1.35.)

@@ -141,6 +141,14 @@ def _build_extended_tokenizer(base_tokenizer, new_tokens: list[str]):
     rewrite vocab.txt with the appended tokens, delete the cached fast
     state, and reload — producing a tokenizer where the new tokens are
     part of the *base* vocabulary, not "added" tokens.
+
+    The reload disables BERT's lowercasing, accent-stripping, and CJK
+    spacing. With defaults, BERT's `BasicTokenizer` strips Bangla
+    diacritics (nukta `়`, virama `্`, candrabindu `ঁ`) because they fall
+    in Unicode category Mn — turning `গাড়ি` into `গাডি`, etc. The Bangla
+    wordpieces from the donor tokenizer assume those marks are preserved,
+    so without this override the bridged tokenizer would never produce
+    the new Bangla token IDs.
     """
     save_dir = Path(tempfile.mkdtemp(prefix="git_bridged_tok_"))
     base_tokenizer.save_pretrained(save_dir)
@@ -170,7 +178,12 @@ def _build_extended_tokenizer(base_tokenizer, new_tokens: list[str]):
         if p.exists():
             p.unlink()
 
-    return AutoTokenizer.from_pretrained(save_dir)
+    return AutoTokenizer.from_pretrained(
+        save_dir,
+        do_lower_case=False,
+        strip_accents=False,
+        tokenize_chinese_chars=False,
+    )
 
 
 def bridge_vocabulary(
