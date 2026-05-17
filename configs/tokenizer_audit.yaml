@@ -1,0 +1,43 @@
+# Tokenizer fertility audit config.
+#
+# Each tokenizer is loaded via AutoTokenizer.from_pretrained(name, **kwargs).
+# `role` is purely descriptive — appears in the output table.
+
+corpus:
+  # Source of Bangla text to tokenize. Choose ONE of the loaders below.
+  #
+  # Option A: HuggingFace dataset (default, free, ~instant).
+  hf_dataset:
+    name: wikimedia/wikipedia
+    config: 20231101.bn
+    split: train
+    text_field: text
+    max_samples: 2000        # cap for speed; set null for full split
+    split_into_sentences: true   # wikipedia rows are full articles; split on । / .
+  #
+  # Option B: local file (uncomment and remove hf_dataset).
+  # local_file: /content/drive/MyDrive/bangla-vlm-lora/data/raw/ban_cap_captions.txt
+
+tokenizers:
+  - name: microsoft/git-base
+    role: "VLM (primary target) — English BERT WordPiece"
+  - name: Salesforce/blip-image-captioning-base
+    role: "VLM — English BERT WordPiece"
+  - name: microsoft/Florence-2-base
+    role: "VLM — BART (English)"
+    trust_remote_code: true
+  - name: Salesforce/blip2-opt-2.7b
+    role: "VLM — OPT (English)"
+  - name: Qwen/Qwen2-VL-2B-Instruct
+    role: "VLM — multilingual baseline"
+    trust_remote_code: true
+  - name: facebook/mbart-large-50
+    role: "Multilingual decoder (Bangla supported)"
+  - name: csebuetnlp/banglabert
+    role: "Bangla-native upper bound (encoder)"
+  - name: csebuetnlp/banglat5
+    role: "Bangla-native upper bound (seq2seq)"
+
+output:
+  results_csv: tokenizer_audit_results.csv
+  results_md: tokenizer_audit_results.md

@@ -1,0 +1,9 @@
+name,role,vocab_size,bn_vocab_tokens,n_input_words,n_subtokens,n_unk,fertility,unk_rate,roundtrip_preserved,failed,error
+microsoft/git-base,VLM (primary target) — English BERT WordPiece,30522,72,28584,139486,3494,4.87986286034145,0.02504910887114119,0.7736762539049016,False,
+Salesforce/blip-image-captioning-base,VLM — English BERT WordPiece,30522,72,28584,139486,3494,4.87986286034145,0.02504910887114119,0.7736762539049016,False,
+microsoft/Florence-2-base,VLM — BART (English),50265,0,28584,404946,0,14.166876574307304,0.0,1.0,False,
+Salesforce/blip2-opt-2.7b,VLM — OPT (English),50266,0,28584,404946,0,14.166876574307304,0.0,1.0,False,
+Qwen/Qwen2-VL-2B-Instruct,VLM — multilingual baseline,151657,0,28584,215357,0,7.534179960817241,0.0,1.0,False,
+facebook/mbart-large-50,Multilingual decoder (Bangla supported),250054,2499,28584,62313,40,2.179995801847187,0.0006419206265145315,0.9990795982301321,False,
+csebuetnlp/banglabert,Bangla-native upper bound (encoder),32000,29127,28584,38458,280,1.3454380072767982,0.0072806698216235895,0.979889712608681,False,
+csebuetnlp/banglat5,Bangla-native upper bound (seq2seq),32100,28644,28584,38655,315,1.352329974811083,0.008149010477299184,0.997771274588191,False,
