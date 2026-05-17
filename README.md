@@ -22,6 +22,12 @@ bangla-vlm-lora/
 └── paths.py          # single source of truth for data/checkpoint locations
 ```
 
+## Starting a new Colab session
+
+Open `notebooks/00_bootstrap.ipynb` from this repo (or just paste the four
+cells) — it mounts Drive, clones/pulls this repo, installs dependencies, and
+verifies that paths resolve. Run it first every session.
+
 ## Data and checkpoints live on Google Drive
 
 Code is in this directory; large artifacts (datasets, model weights, results)
