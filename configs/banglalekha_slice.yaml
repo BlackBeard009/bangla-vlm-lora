@@ -1,0 +1,53 @@
+# BanglaLekha pipeline-validation slice.
+#
+# Smallest run that proves the bridged-GiT + LoRA recipe works on REAL
+# Bangla image-caption pairs (not synthetic data). Not paper-grade.
+#
+# Scope: 200 training images, 20 held-out val images, 300 LoRA steps.
+# Target wall-clock: ~5-10 min on a T4. Bumping `training.steps`,
+# `data.max_samples`, and removing the slice caps converts this into the
+# full-data run.
+
+model:
+  name: microsoft/git-base
+  dtype: float32
+  use_fast_tokenizer: false
+
+bridge:
+  donor_tokenizer: csebuetnlp/banglabert
+  donor_model_for_init: csebuetnlp/banglabert
+  init_strategy: donor   # donor edges out mean/random per docs/results/git_bridged_ablation
+
+lora:
+  rank: 8
+  alpha: 16
+  dropout: 0.05
+  target_modules: [query, key, value]
+  modules_to_save: [output, word_embeddings]
+
+data:
+  captions_path: /content/drive/MyDrive/bangla-vlm-lora/data/raw/banglalekha/captions.json
+  images_dir: /content/banglalekha_raw/images
+  val_fraction: 0.1
+  max_samples: 200          # train slice cap; set null for full split
+  max_val_samples: 20       # val slice cap
+  caption_selection: first  # deterministic; "random" picks one of the two refs each call
+
+training:
+  steps: 300
+  batch_size: 4
+  lr: 1.0e-4
+  weight_decay: 0.0
+  log_every: 25
+  eval_every: 100  # compute val loss + sample generations this often
+
+generation:
+  max_new_tokens: 30
+  num_beams: 4
+  n_samples: 5     # how many val items to decode at each eval point
+
+seed: 42
+
+output:
+  results_subdir: banglalekha_slice
+  save_adapter: true        # writes LoRA adapter to paths.EXP_CHECKPOINTS/banglalekha_slice/
