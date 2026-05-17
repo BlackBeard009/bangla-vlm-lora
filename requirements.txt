@@ -1,0 +1,30 @@
+# Core ML
+torch
+transformers
+accelerate
+peft
+bitsandbytes
+datasets
+sentencepiece
+tokenizers
+
+# Vision
+Pillow
+torchvision
+
+# Evaluation metrics
+sacrebleu
+nltk
+pycocoevalcap
+bert-score
+# clip-score and multilingual-clip pinned later once we decide on backbone
+
+# Experiment plumbing
+pyyaml
+tqdm
+pandas
+numpy
+scikit-learn
+
+# Annotator agreement
+krippendorff

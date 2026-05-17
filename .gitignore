@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+
+# Local artifact fallback (real data lives on Drive)
+_local_data/
+
+# Notebook outputs (commit cleaned versions)
+notebooks/**/*.ipynb_checkpoints/
+
+# Model artifacts that should never be in git
+*.safetensors
+*.bin
+*.pt
+*.ckpt
+
+# Logs
+*.log
+wandb/
+
+# OS
+.DS_Store
