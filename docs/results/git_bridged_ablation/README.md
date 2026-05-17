@@ -1,6 +1,6 @@
 # Bridged-GiT + LoRA: closing the motivation chain
 
-**Date:** 2026-05-17
+**Date:** 2026-05-17 (re-run after diacritic-normalization fix `dba58dc`)
 **Hardware:** Colab T4 (16 GB)
 **Script:** `scripts/git_bridged_ablation.py`
 **Config:** `configs/git_bridged_ablation.yaml`
@@ -28,11 +28,16 @@ Training: 50 steps, batch 4, AdamW lr 1e-4, 16 in-memory synthetic Bangla sample
 
 | Init | Vocab before→after | Added | Trainable | Loss start→end | Generated |
 |---|---|---|---|---|---|
-| `random` | 30,522 → 59,577 | +29,055 | 33.11% | 11.64 → 4.10 | `। । । । । । ।` |
-| `mean` | 30,522 → 59,577 | +29,055 | 33.11% | 11.64 → 4.10 | `। । । । । । ।` |
-| `donor` | 30,522 → 59,577 | +29,055 | 33.11% | **11.52 → 4.09** | `। । । । । । ।` |
+| `random` | 30,522 → 59,577 | +29,055 | 33.11% | 11.735 → 3.836 | `। । । ...` (24×) |
+| `mean` | 30,522 → 59,577 | +29,055 | 33.11% | 11.735 → 3.836 | `। । । ...` (24×) |
+| `donor` | 30,522 → 59,577 | +29,055 | 33.11% | **11.206 → 3.778** | `। । । ...` (24×) |
 
 Reference caption: `একটি লাল গাড়ি রাস্তায় চলছে।`
+
+Loss ~0.3 lower end-to-end than the pre-fix run because the bridged
+tokenizer now hits its donor wordpieces — Bangla captions tokenize
+into far fewer pieces, so the model converges further in the same
+50 steps. Output still collapses to the danda; see caveat #2.
 
 ## What this demonstrates
 
