@@ -1,0 +1,27 @@
+# Smoke-test config: verify GiT-base + LoRA trains end-to-end on synthetic Bangla.
+#
+# Mirrors configs/smoke_git.yaml but applies LoRA. Tests the HF #1958
+# concern that PEFT on GiT may not learn.
+
+model:
+  name: microsoft/git-base
+  dtype: float32
+
+lora:
+  rank: 8
+  alpha: 16
+  dropout: 0.05
+  target_modules: [query, key, value]   # text-side BERT attention projections
+
+training:
+  steps: 50
+  batch_size: 4
+  lr: 1.0e-4          # slightly higher than full-FT — only adapter params train
+  weight_decay: 0.0
+  log_every: 5
+
+generation:
+  max_new_tokens: 30
+  num_beams: 4
+
+seed: 42

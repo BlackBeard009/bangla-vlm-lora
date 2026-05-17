@@ -4,6 +4,7 @@ transformers
 accelerate
 peft
 bitsandbytes
+torchao>=0.16   # peft requires this version range
 datasets
 sentencepiece
 tokenizers
