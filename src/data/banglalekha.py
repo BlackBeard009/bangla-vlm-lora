@@ -10,8 +10,16 @@ index using a 90/10 train/val split (seedable via the constructor).
 
 Caption-multiplicity policy: each image yields *one* caption per `__getitem__`
 call, chosen by `caption_selection`:
-  - "first"  : always use captions[0]               (deterministic)
-  - "random" : pick uniformly from the two captions (per-call, RNG-seeded)
+  - "first"  : always use captions[0]                       (deterministic)
+  - "last"   : always use captions[-1]                      (deterministic)
+  - "random" : pick uniformly from the available captions   (per-call, RNG-seeded)
+
+For BanglaLekha, captions[0] is consistently the short summary form
+(~7 words, mean) and captions[-1] is the longer descriptive form
+(~10+ words, mean) — empirically 73% of images have c[-1] longer than
+c[0] and 40% have c[-1] at least 2× c[0]. "first" vs "last" therefore
+selects between the corpus's two distinct caption styles, not between
+parallel translations.
 
 For the slice / pipeline-validation run we default to "first" so a fixed seed
 yields identical batches.
@@ -65,7 +73,7 @@ class BanglaLekhaCaptions(Dataset):
         split: Literal["train", "val", "all"] = "train",
         val_fraction: float = 0.1,
         max_samples: int | None = None,
-        caption_selection: Literal["first", "random"] = "first",
+        caption_selection: Literal["first", "last", "random"] = "first",
         seed: int = 42,
     ) -> None:
         self.captions_path = Path(captions_path)
@@ -101,8 +109,10 @@ class BanglaLekhaCaptions(Dataset):
     def __getitem__(self, idx: int) -> BanglaLekhaItem:
         entry = self.entries[idx]
         captions = entry["caption"]
-        if self.caption_selection == "first" or len(captions) == 1:
+        if len(captions) == 1 or self.caption_selection == "first":
             caption = captions[0]
+        elif self.caption_selection == "last":
+            caption = captions[-1]
         else:
             caption = self._rng.choice(captions)
 

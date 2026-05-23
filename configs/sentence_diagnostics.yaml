@@ -1,0 +1,105 @@
+# Three post-hoc diagnostics on the saved banglalekha_full adapter.
+# No retraining. Aimed at disambiguating WHY the model emits short,
+# templated captions:
+#
+#   Test 1 (image_scrambling) — feed the model real / gray / random-noise
+#     images and measure how much the outputs change. If outputs barely
+#     change between real and gray, the model has learned to ignore the
+#     image (visual signal is not reaching the decoder in a useful way).
+#
+#   Test 2 (forced_length) — keep the model fixed but constrain the
+#     decoder to emit longer outputs (min_new_tokens + length_penalty +
+#     no_repeat_ngram_size + early_stopping=False). Tells us whether the
+#     model has more compositional structure than beam search reveals,
+#     or whether longer outputs just stretch out the same prior.
+#
+#   Test 3 (caption_length_eval) — recompute val cross-entropy under
+#     caption_selection in {first, last, random}. captions[0] is the
+#     short summary; captions[-1] is the longer descriptive form. The
+#     2.55 val loss reported in banglalekha_full was against the SHORT
+#     captions only. This test quantifies how much of "convergence" is
+#     actually "convergence to the short-caption mean."
+
+adapter:
+  checkpoint_subdir: banglalekha_full
+
+model:
+  name: microsoft/git-base
+  dtype: float32
+
+data:
+  captions_path: /content/drive/MyDrive/bangla-vlm-lora/data/raw/banglalekha/captions.json
+  images_dir: /content/banglalekha_raw/images
+  val_fraction: 0.1
+  n_samples: 8                # first-8 val items shown in samples.json — matches decode_ablation
+
+seed: 42
+
+# ----- Test 1 -----
+image_scrambling:
+  enabled: true
+  # Decode params shared by all four image variants — matches
+  # baseline_beam4 in configs/decode_ablation.yaml so the "real" column
+  # is a direct repro of the existing samples.
+  decode:
+    max_new_tokens: 30
+    num_beams: 4
+  variants:
+    - name: real
+      description: Unmodified val image.
+    - name: gray
+      description: Solid mid-gray (128,128,128) image. Patch embeddings
+        collapse to a single value plus positional embedding — strongest
+        possible "no image information" baseline.
+    - name: noise
+      description: Per-pixel uniform random RGB. High-entropy patches
+        with no real-world structure; tests behavior under out-of-distribution
+        visual input.
+    - name: shuffled
+      description: image[i] replaced with image[(i+1) mod n] from the same
+        val batch. Real images but wrong-for-this-caption — tests whether
+        the model attends to image-specific content vs. produces priors.
+
+# ----- Test 2 -----
+forced_length:
+  enabled: true
+  variants:
+    - name: baseline_beam4
+      description: Repro of decode_ablation baseline for reference.
+      params:
+        max_new_tokens: 30
+        num_beams: 4
+    - name: min8_no_early_stop
+      description: Force at least 8 new tokens; disable early_stopping;
+        add length_penalty=2.0 and no_repeat_ngram_size=3 to prevent
+        degenerate beam loops at long lengths.
+      params:
+        max_new_tokens: 30
+        min_new_tokens: 8
+        num_beams: 4
+        no_repeat_ngram_size: 3
+        length_penalty: 2.0
+        early_stopping: false
+    - name: min12_no_early_stop
+      description: Push harder — at least 12 tokens. Roughly matches the
+        median length of captions[0] (~7 words ≈ 7-9 tokens) and starts
+        to approach captions[-1] territory (~10 words).
+      params:
+        max_new_tokens: 30
+        min_new_tokens: 12
+        num_beams: 4
+        no_repeat_ngram_size: 3
+        length_penalty: 2.0
+        early_stopping: false
+
+# ----- Test 3 -----
+caption_length_eval:
+  enabled: true
+  batch_size: 4
+  selections:
+    - first          # short captions (matches training-time eval)
+    - last           # long descriptive captions
+    - random         # same selection used at TRAIN time
+
+output:
+  results_subdir: sentence_diagnostics
