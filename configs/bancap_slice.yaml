@@ -1,0 +1,53 @@
+# BAN-Cap slice run — bridged GiT + LoRA on a small slice of BAN-Cap.
+#
+# Pipeline-validation only; the slice is too small for a paper-grade
+# claim. Confirms the loader + bridge + training loop work end-to-end
+# on the new corpus before committing to the full run.
+#
+# 200 train / 20 val (max_samples post-split) / 300 LoRA steps, batch 4.
+# Target wall-clock ~5-10 min on a T4.
+
+model:
+  name: microsoft/git-base
+  dtype: float32
+  use_fast_tokenizer: false
+
+bridge:
+  donor_tokenizer: csebuetnlp/banglabert
+  donor_model_for_init: csebuetnlp/banglabert
+  init_strategy: donor
+
+lora:
+  rank: 8
+  alpha: 16
+  dropout: 0.05
+  target_modules: [query, key, value]
+  modules_to_save: [output, word_embeddings]
+
+data:
+  loader: bancap
+  captions_path: /content/drive/MyDrive/bangla-vlm-lora/data/raw/bancap/BAN-Cap_captiondata.csv
+  images_dir: /content/bancap_dl/Images
+  val_fraction: 0.1
+  max_samples: 200
+  max_val_samples: 20
+  caption_selection: random  # see all 5 annotator captions
+
+training:
+  steps: 300
+  batch_size: 4
+  lr: 1.0e-4
+  weight_decay: 0.0
+  log_every: 50
+  eval_every: 100
+
+generation:
+  max_new_tokens: 30
+  num_beams: 4
+  n_samples: 8
+
+seed: 42
+
+output:
+  results_subdir: bancap_slice
+  save_adapter: true

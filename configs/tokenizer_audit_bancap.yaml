@@ -1,0 +1,45 @@
+# Tokenizer fertility audit on BAN-Cap captions.
+#
+# Parallel to configs/tokenizer_audit.yaml (which audits Wikipedia
+# Bangla). Same 9 tokenizers, same methodology — only the corpus
+# changes. Both are 2,000-sentence samples to keep numbers
+# directly comparable.
+#
+# Rationale: Wikipedia text is article-length descriptive prose;
+# BAN-Cap captions are short noun-phrase / single-action sentences.
+# Tokenizer fertility differs between these distributions (loanwords,
+# rare proper nouns, technical vocabulary, etc.). The paper plan
+# (CLAUDE.md "What's next" item) calls for this re-run on the actual
+# downstream corpus.
+
+corpus:
+  local_file: /content/drive/MyDrive/bangla-vlm-lora/data/raw/bancap/bn_captions_2000.txt
+
+tokenizers:
+  - name: microsoft/git-base
+    role: "VLM (primary target) — English BERT WordPiece"
+  - kind: bridged
+    name: "microsoft/git-base + csebuetnlp/banglabert (bridged)"
+    role: "VLM — bridged: GiT vocab + BanglaBERT wordpieces (C1)"
+    base: microsoft/git-base
+    donor: csebuetnlp/banglabert
+  - name: Salesforce/blip-image-captioning-base
+    role: "VLM — English BERT WordPiece"
+  - name: microsoft/Florence-2-base
+    role: "VLM — BART (English)"
+    trust_remote_code: true
+  - name: Salesforce/blip2-opt-2.7b
+    role: "VLM — OPT (English)"
+  - name: Qwen/Qwen2-VL-2B-Instruct
+    role: "VLM — multilingual baseline"
+    trust_remote_code: true
+  - name: facebook/mbart-large-50
+    role: "Multilingual decoder (Bangla supported)"
+  - name: csebuetnlp/banglabert
+    role: "Bangla-native upper bound (encoder)"
+  - name: csebuetnlp/banglat5
+    role: "Bangla-native upper bound (seq2seq)"
+
+output:
+  results_csv: tokenizer_audit_bancap.csv
+  results_md: tokenizer_audit_bancap.md

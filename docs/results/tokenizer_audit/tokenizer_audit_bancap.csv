@@ -1,0 +1,10 @@
+name,role,vocab_size,bn_vocab_tokens,n_input_words,n_subtokens,n_unk,fertility,unk_rate,roundtrip_preserved,failed,error
+microsoft/git-base,VLM (primary target) — English BERT WordPiece,30522,72,17020,70714,1453,4.15475910693302,0.020547557767910174,0.7819769057066565,False,
+microsoft/git-base + csebuetnlp/banglabert (bridged),VLM — bridged: GiT vocab + BanglaBERT wordpieces (C1),59577,29127,17020,20020,1185,1.1762632197414806,0.05919080919080919,0.9118303318652284,False,
+Salesforce/blip-image-captioning-base,VLM — English BERT WordPiece,30522,72,17020,70714,1453,4.15475910693302,0.020547557767910174,0.7819769057066565,False,
+microsoft/Florence-2-base,VLM — BART (English),50265,0,17020,197806,0,11.621974148061105,0.0,1.0,False,
+Salesforce/blip2-opt-2.7b,VLM — OPT (English),50266,0,17020,197806,0,11.621974148061105,0.0,1.0,False,
+Qwen/Qwen2-VL-2B-Instruct,VLM — multilingual baseline,151657,0,17020,107010,0,6.287309048178614,0.0,0.9707517303138138,False,
+facebook/mbart-large-50,Multilingual decoder (Bangla supported),250054,2499,17020,33627,0,1.9757344300822561,0.0,0.9705279600845221,False,
+csebuetnlp/banglabert,Bangla-native upper bound (encoder),32000,29127,17020,20020,1185,1.1762632197414806,0.05919080919080919,0.9118303318652284,False,
+csebuetnlp/banglat5,Bangla-native upper bound (seq2seq),32100,28644,17020,22725,1351,1.3351938895417157,0.05944994499449945,0.9851914292577402,False,
