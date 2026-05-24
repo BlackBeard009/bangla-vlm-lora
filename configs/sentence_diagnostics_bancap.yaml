@@ -1,0 +1,102 @@
+# Sentence-length diagnostics on the saved bancap_full adapter.
+# Companion to configs/sentence_diagnostics.yaml — identical decode and
+# test schedule, only the corpus + adapter change. Lets us produce a
+# direct apples-to-apples comparison with the BanglaLekha diagnostics
+# (docs/results/banglalekha_full/sentence_diagnostics.md).
+#
+# Expected outcomes (per docs/SESSION_HANDOFF.md):
+#   Test 1 (image_scrambling) — Jaccard probably higher than BanglaLekha;
+#     content-token agreement under `shuffled` should be the clearest
+#     signal that the model uses image content.
+#   Test 2 (forced_length) — same negative finding likely (decoder
+#     capacity is the binding constraint regardless of corpus).
+#   Test 3 (caption_length_eval) — `first`/`last`/`random` should cluster
+#     close together (BAN-Cap has 5 peer refs of comparable length, no
+#     short/long structure), unlike BanglaLekha's 3.76× PPL gap. If this
+#     is what we see, it directly validates the corpus-switch decision.
+
+adapter:
+  checkpoint_subdir: bancap_full
+
+model:
+  name: microsoft/git-base
+  dtype: float32
+
+data:
+  loader: bancap              # dispatch key (see src/data/__init__.py:build_caption_dataset)
+  captions_path: /content/drive/MyDrive/bangla-vlm-lora/data/raw/bancap/BAN-Cap_captiondata.csv
+  images_dir: /content/bancap_dl/Images
+  val_fraction: 0.1
+  n_samples: 8                # first-8 val items shown in samples.json — matches bancap_full samples
+
+seed: 42
+
+# ----- Test 1 -----
+image_scrambling:
+  enabled: true
+  # Decode params match baseline_beam4 / what the bancap_full sample
+  # table used, so the `real` column is a direct repro.
+  decode:
+    max_new_tokens: 30
+    num_beams: 4
+  variants:
+    - name: real
+      description: Unmodified val image.
+    - name: gray
+      description: Solid mid-gray (128,128,128) image. Patch embeddings
+        collapse to a single value plus positional embedding — strongest
+        possible "no image information" baseline.
+    - name: noise
+      description: Per-pixel uniform random RGB. High-entropy patches
+        with no real-world structure; tests behavior under out-of-distribution
+        visual input.
+    - name: shuffled
+      description: image[i] replaced with image[(i+1) mod n] from the same
+        val batch. Real images but wrong-for-this-caption — tests whether
+        the model attends to image-specific content vs. produces priors.
+
+# ----- Test 2 -----
+forced_length:
+  enabled: true
+  variants:
+    - name: baseline_beam4
+      description: Repro of the bancap_full headline decode for reference.
+      params:
+        max_new_tokens: 30
+        num_beams: 4
+    - name: min8_no_early_stop
+      description: Force at least 8 new tokens; disable early_stopping;
+        add length_penalty=2.0 and no_repeat_ngram_size=3 to prevent
+        degenerate beam loops at long lengths.
+      params:
+        max_new_tokens: 30
+        min_new_tokens: 8
+        num_beams: 4
+        no_repeat_ngram_size: 3
+        length_penalty: 2.0
+        early_stopping: false
+    - name: min12_no_early_stop
+      description: Push harder — at least 12 tokens.
+      params:
+        max_new_tokens: 30
+        min_new_tokens: 12
+        num_beams: 4
+        no_repeat_ngram_size: 3
+        length_penalty: 2.0
+        early_stopping: false
+
+# ----- Test 3 -----
+caption_length_eval:
+  enabled: true
+  batch_size: 4
+  # BAN-Cap has 5 peer captions per image (annotators 0..4). `first` /
+  # `last` therefore vary by annotator identity rather than by caption
+  # length, unlike BanglaLekha where they map to short/long. We include
+  # `random` to mirror the training-time selection.
+  selections:
+    - first
+    - last
+    - random
+
+output:
+  results_subdir: sentence_diagnostics_bancap

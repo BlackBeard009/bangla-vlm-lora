@@ -28,6 +28,7 @@ model:
   dtype: float32
 
 data:
+  loader: banglalekha         # dispatch key (see src/data/__init__.py:build_caption_dataset)
   captions_path: /content/drive/MyDrive/bangla-vlm-lora/data/raw/banglalekha/captions.json
   images_dir: /content/banglalekha_raw/images
   val_fraction: 0.1

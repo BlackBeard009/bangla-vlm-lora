@@ -12,14 +12,23 @@ Runs three independent diagnostics on the same adapter, no retraining:
     structure than beam search reveals? Compares outputs across beam4
     decode configs with progressively stronger min_new_tokens.
 
-  - Test 3 (caption_length_eval): how badly does the model underfit the
-    LONG captions in BanglaLekha? Computes val cross-entropy under
-    caption_selection in {first, last, random}; captions[0] is the
-    ~7-word short form and captions[-1] is the ~10+ word descriptive
-    form.
+  - Test 3 (caption_length_eval): how does val cross-entropy shift
+    when the reference target changes? Computes val CE under each
+    `caption_selection` listed in the config (e.g. {first, last,
+    random}). For BanglaLekha (2 refs, short/long) this surfaces the
+    short/long underfitting gap; for BAN-Cap (5 peer refs from
+    different annotators) it surfaces annotator-variance instead.
+
+The corpus is selected via `data.loader` in the config: either
+`banglalekha` or `bancap`. Both loaders expose the same item interface
+(`item.image`, `item.caption`, `item.filename`); the only schema
+difference is internal (the list of references is stored under
+`entry["caption"]` for BanglaLekha and `entry["captions"]` for BAN-Cap)
+and is handled in :func:`val_loss_for_selection`.
 
 Run from repo root:
     python scripts/sentence_diagnostics.py --config configs/sentence_diagnostics.yaml
+    python scripts/sentence_diagnostics.py --config configs/sentence_diagnostics_bancap.yaml
 """
 
 from __future__ import annotations
@@ -42,7 +51,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
 import paths  # noqa: E402
-from src.data.banglalekha import BanglaLekhaCaptions  # noqa: E402
+from src.data import build_caption_dataset  # noqa: E402
 
 
 def set_seed(seed: int) -> None:
@@ -213,9 +222,29 @@ def collate_loss(batch, processor):
     return enc
 
 
+def _representative_caption(entry: dict, selection: str) -> str:
+    """Pick a representative caption from an entry for word-length stats.
+
+    Handles the schema difference between BanglaLekha (`entry["caption"]`,
+    a list) and BAN-Cap (`entry["captions"]`, a list). For `random`,
+    returns the first caption as a representative (the actual training
+    RNG draws aren't reproduced here; we only need a length estimate).
+    """
+    caps = entry.get("captions") or entry["caption"]
+    if selection == "first":
+        return caps[0]
+    if selection == "last":
+        return caps[-1]
+    if selection.startswith("index:"):
+        i = int(selection.split(":", 1)[1])
+        return caps[i] if i < len(caps) else caps[-1]
+    return caps[0]  # representative for "random"
+
+
 @torch.no_grad()
-def val_loss_for_selection(model, processor, captions_path, images_dir, val_fraction, batch_size, selection, seed, device):
-    val_ds = BanglaLekhaCaptions(
+def val_loss_for_selection(model, processor, loader_name, captions_path, images_dir, val_fraction, batch_size, selection, seed, device):
+    val_ds = build_caption_dataset(
+        loader_name,
         captions_path=captions_path,
         images_dir=images_dir,
         split="val",
@@ -231,16 +260,10 @@ def val_loss_for_selection(model, processor, captions_path, images_dir, val_frac
     )
     total_loss = 0.0
     n_batches = 0
-    # Also track caption-length stats for the summary
-    cap_word_lens = []
-    for item in val_ds.entries:
-        if selection == "first":
-            cap = item["caption"][0]
-        elif selection == "last":
-            cap = item["caption"][-1]
-        else:
-            cap = item["caption"][0]  # not the actual sampled one, but a representative
-        cap_word_lens.append(len(cap.split()))
+    cap_word_lens = [
+        len(_representative_caption(item, selection).split())
+        for item in val_ds.entries
+    ]
     for batch in loader:
         batch = {k: v.to(device) for k, v in batch.items()}
         out = model(**batch)
@@ -258,15 +281,19 @@ def val_loss_for_selection(model, processor, captions_path, images_dir, val_frac
 # ---------- Reporting ----------
 
 def write_report(cfg, out_dir: Path, t1_results, t1_summary, t2_results, t2_summary, t3_results, n_val):
+    adapter_subdir = cfg["adapter"]["checkpoint_subdir"]
+    loader_name = cfg["data"].get("loader", "banglalekha")
+    config_path_hint = f"configs/sentence_diagnostics{'_bancap' if loader_name == 'bancap' else ''}.yaml"
     lines = [
-        "# Sentence-length diagnostics — banglalekha_full adapter",
+        f"# Sentence-length diagnostics — {adapter_subdir} adapter",
         "",
-        f"Adapter: `paths.EXP_CHECKPOINTS/{cfg['adapter']['checkpoint_subdir']}/`",
+        f"Adapter: `paths.EXP_CHECKPOINTS/{adapter_subdir}/`",
+        f"Corpus: `{loader_name}` (loader dispatched via `data.loader` in the config).",
         f"Val split: {n_val} images (seed={cfg['seed']}, val_fraction={cfg['data']['val_fraction']}).",
         "",
         "Three independent diagnostics; none touch the model weights.",
         "Aim is to disambiguate the cause(s) of the templated outputs",
-        "observed in `banglalekha_full/README.md`.",
+        f"observed in the headline `{adapter_subdir}` run.",
         "",
     ]
 
@@ -362,7 +389,7 @@ def write_report(cfg, out_dir: Path, t1_results, t1_summary, t2_results, t2_summ
         lines += [
             "## Test 3 — caption-length val cross-entropy",
             "",
-            "Full 915-item val split. Same adapter, same decode-irrelevant",
+            f"Full {n_val}-item val split. Same adapter, same decode-irrelevant",
             "teacher-forced forward pass; only the reference target changes.",
             "",
             "| Selection | Mean ref words | Val loss | Perplexity | n_val |",
@@ -396,12 +423,11 @@ def write_report(cfg, out_dir: Path, t1_results, t1_summary, t2_results, t2_summ
         "",
         "```bash",
         "cd /content/bangla-vlm-lora",
-        "python scripts/sentence_diagnostics.py --config configs/sentence_diagnostics.yaml",
+        f"python scripts/sentence_diagnostics.py --config {config_path_hint}",
         "```",
         "",
-        f"Requires the `{cfg['adapter']['checkpoint_subdir']}` adapter on Drive and",
-        "BanglaLekha images extracted to `images_dir` in the config (see the",
-        "Reproduce block in `docs/results/banglalekha_full/README.md`).",
+        f"Requires the `{adapter_subdir}` adapter on Drive and the `{loader_name}`",
+        "captions + images at the paths set in the config.",
         "",
     ]
     (out_dir / "results.md").write_text("\n".join(lines), encoding="utf-8")
@@ -424,7 +450,9 @@ def main() -> None:
     print(f"[adapter] {adapter_dir}")
 
     dcfg = cfg["data"]
-    val_ds_first = BanglaLekhaCaptions(
+    loader_name = dcfg.get("loader", "banglalekha")
+    val_ds_first = build_caption_dataset(
+        loader_name,
         captions_path=dcfg["captions_path"],
         images_dir=dcfg["images_dir"],
         split="val",
@@ -434,7 +462,7 @@ def main() -> None:
     )
     n = min(dcfg["n_samples"], len(val_ds_first))
     items = [val_ds_first[i] for i in range(n)]
-    print(f"[data] val={len(val_ds_first)}, decoding first {n} items for tests 1+2")
+    print(f"[data] loader={loader_name}  val={len(val_ds_first)}, decoding first {n} items for tests 1+2")
 
     print(f"[model] loading {cfg['model']['name']} + bridge + adapter ...")
     t0 = time.time()
@@ -495,6 +523,7 @@ def main() -> None:
             t0 = time.time()
             r = val_loss_for_selection(
                 model, processor,
+                loader_name=loader_name,
                 captions_path=dcfg["captions_path"],
                 images_dir=dcfg["images_dir"],
                 val_fraction=dcfg["val_fraction"],
