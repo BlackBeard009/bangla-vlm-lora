@@ -65,6 +65,39 @@ transformers 4.x→5.x). Wall: 1,414 s for 10K steps.
   `baseline_beam4` ≈ `beam4_penalties` on nearly every metric, both
   adapters.
 
+## Zero-shot Qwen2-VL-2B baseline (2026-07-10)
+
+`scripts/zeroshot_vlm.py` + `configs/zeroshot_qwen2vl_bancap.yaml`.
+Same 809 val images and references. Prompt ablation (7 variants) first:
+
+- English instruction → fluent **English** captions; "Reply only in
+  Bengali" ignored.
+- Bangla instruction → grounding-coordinate junk (`dog(365,306),(879,903)`).
+- Forced Bangla assistant prefix → Bangla script but hallucinated
+  content (`ছবিতে ২০১২ সালের বার্ষিক প্রতিযোগিতায়…`).
+
+Full-run row (best Bangla-eliciting prompt, outputs scored as-is;
+**0/809 outputs contain any Bangla codepoint**):
+
+| System | BLEU-1..4 | CIDEr | BERTScore-F1 | M-CLIPScore |
+|---|---:|---:|---:|---:|
+| Qwen2-VL-2B zero-shot | 0.000 all | 0.000 | 0.690 | **0.803** |
+
+Two paper-grade findings:
+
+1. **Tokenizer coverage ≠ generation capability.** Qwen2-VL's vocab
+   handles Bangla (fertility audit) yet the 2B instruct model cannot
+   produce it from image inputs. Sharpens the bridge story: our
+   GiT+bridge (BLEU-1 0.498) beats a 6× larger multilingual VLM at
+   producing Bangla at all.
+2. **M-CLIPScore is language-blind.** It scores the 0%-Bangla system
+   0.803 vs 0.546–0.552 for genuinely Bangla systems — reference-free
+   multilingual-embedding scoring rewards semantic image match in the
+   *wrong language*. BERTScore-bn (0.690 vs 0.747–0.758) is only
+   mildly penalizing. Core evidence for the §C3 protocol
+   recommendation: n-gram or human eval must anchor Bangla evaluation;
+   M-CLIPScore alone is unusable for language fidelity.
+
 ## Honest context vs. published baselines
 
 BAN-Cap's own models (LREC 2022) report BLEU-4 ≈ 0.17–0.20; we are at

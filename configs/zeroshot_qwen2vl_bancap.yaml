@@ -14,7 +14,7 @@ model:
   processor_kwargs:
     max_pixels: 602112   # 768 * 28 * 28
 
-prompt: "এই ছবির জন্য এক বাক্যে একটি সংক্ষিপ্ত বাংলা ক্যাপশন লিখুন।"
+prompt: "Write a one-sentence caption for this image in the Bengali language. Reply only in Bengali."
 
 data:
   loader: bancap
