@@ -1,0 +1,42 @@
+# Zero-shot Qwen2-VL-2B-Instruct baseline on the BAN-Cap val split.
+#
+# Paper-plan §C4 zero-shot lower bound + the "tokenizer already has
+# Bangla" contrast system for the embedding-bridge story. Same val
+# split, references, and metric battery as score_captions_bancap*.yaml
+# so rows are directly comparable.
+#
+# max_pixels caps the vision-token count so 2B inference stays well
+# inside 8 GB VRAM (Flickr8k images are small anyway).
+
+model:
+  name: Qwen/Qwen2-VL-2B-Instruct
+  dtype: bfloat16
+  processor_kwargs:
+    max_pixels: 602112   # 768 * 28 * 28
+
+prompt: "এই ছবির জন্য এক বাক্যে একটি সংক্ষিপ্ত বাংলা ক্যাপশন লিখুন।"
+
+data:
+  loader: bancap
+  captions_path: data/raw/bancap/BAN-Cap_captiondata.csv
+  images_dir: data/raw/flickr8k/Images
+  val_fraction: 0.1
+  max_val_samples: null
+  caption_selection: first
+
+generation:
+  max_new_tokens: 48
+  do_sample: false
+
+metrics:
+  bertscore: true
+  bertscore_batch_size: 64
+  clipscore: true
+  clip_text_model: sentence-transformers/clip-ViT-B-32-multilingual-v1
+  clip_image_model: clip-ViT-B-32
+  clipscore_batch_size: 32
+
+seed: 42
+
+output:
+  results_subdir: zeroshot_qwen2vl_bancap
