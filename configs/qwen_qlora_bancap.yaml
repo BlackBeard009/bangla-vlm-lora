@@ -1,0 +1,54 @@
+# Qwen2-VL-2B QLoRA on BAN-Cap — "does LoRA unlock the Bangla the vocab
+# already covers?"
+#
+# Attention-only LoRA on the LLM (q/k/v/o_proj), vision tower +
+# embeddings + LM head frozen. Deliberately mirrors the GiT V1
+# attention-only ablation that FAILED (English output) because GiT's
+# vocab lacked Bangla. Qwen's vocab covers Bangla; zero-shot it still
+# produces none (0/809). If this run yields Bangla, vocabulary coverage
+# is the deciding factor between the two failure modes and the bridge
+# story closes from both directions.
+#
+# 3,000 optimizer steps x accum 4 = 12,000 samples seen (~1.6 epochs).
+# Batch 1 + grad accum keeps 4-bit 2B training inside 8 GB.
+
+model:
+  name: Qwen/Qwen2-VL-2B-Instruct
+  processor_kwargs:
+    max_pixels: 602112   # 768 * 28 * 28 — same cap as the zero-shot run
+
+prompt: "Write a one-sentence caption for this image in the Bengali language. Reply only in Bengali."
+
+lora:
+  rank: 8
+  alpha: 16
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj]
+
+data:
+  loader: bancap
+  captions_path: data/raw/bancap/BAN-Cap_captiondata.csv
+  images_dir: data/raw/flickr8k/Images
+  val_fraction: 0.1
+  max_samples: null
+  max_val_samples: null
+  caption_selection: random
+
+training:
+  steps: 3000
+  grad_accum: 4
+  lr: 1.0e-4
+  weight_decay: 0.0
+  log_every: 25
+  eval_every: 250
+  val_ce_items: 50
+
+generation:
+  max_new_tokens: 48
+  do_sample: false
+
+seed: 42
+
+output:
+  results_subdir: qwen_qlora_bancap
+  save_adapter: true
