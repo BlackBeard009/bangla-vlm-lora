@@ -65,6 +65,36 @@ transformers 4.x→5.x). Wall: 1,414 s for 10K steps.
   `baseline_beam4` ≈ `beam4_penalties` on nearly every metric, both
   adapters.
 
+## Qwen2-VL-2B QLoRA (2026-07-10) — vocabulary question answered
+
+`scripts/qwen_qlora_train.py` + `configs/qwen_qlora_bancap.yaml`.
+Attention-only LoRA (q/k/v/o_proj, LLM only, r=8, **0.178% trainable**,
+2.18M params), 4-bit NF4 base, 3K steps × accum 4 = 12K samples,
+2.7 h on the 4060 Ti. Deliberate mirror of the GiT V1 attention-only
+ablation that failed with English output.
+
+| System | BLEU-1 | BLEU-2 | BLEU-3 | BLEU-4 | CIDEr | BERTScore-F1 | M-CLIPScore |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Qwen2-VL-2B QLoRA | **0.532** | **0.331** | **0.177** | **0.082** | **0.300** | **0.804** | **0.561** |
+
+- **809/809 outputs in Bangla** (zero-shot: 0/809). Bangla emerged in
+  the 30-step smoke run already (~120 samples seen).
+- **BLEU-4 wall broken**: 0.000 (all GiT runs) → 0.082. Compositional
+  grammar comes from the 28-layer decoder, not from LoRA placement or
+  training budget — exactly what the GiT diagnostics predicted.
+- **Both directions of the vocabulary argument now closed
+  experimentally:** GiT attention-only + missing vocab = no Bangla
+  ever (V1); Qwen attention-only + covered vocab = fluent Bangla in
+  120 samples. Vocabulary coverage is the deciding factor; the bridge
+  is what buys it when the base model lacks it.
+- BLEU-4 0.082 is within reach of BAN-Cap's published CNN/transformer
+  baselines (~0.17–0.20) with 2.7 h of consumer-GPU training; rank /
+  budget / decode ablations still open.
+- Caveat for the paper: not an isolated single-variable comparison
+  against GiT (base size, pretraining, and instruction tuning all
+  change too). It answers the vocabulary question via the two
+  attention-only endpoints, not "GiT vs Qwen".
+
 ## Zero-shot Qwen2-VL-2B baseline (2026-07-10)
 
 `scripts/zeroshot_vlm.py` + `configs/zeroshot_qwen2vl_bancap.yaml`.

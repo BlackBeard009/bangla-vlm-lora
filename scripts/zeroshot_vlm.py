@@ -109,15 +109,33 @@ def main() -> None:
         filenames.append(item.filename)
     image_paths = [images_dir / f for f in filenames]
 
-    # ---- Phase 1: zero-shot generation --------------------------------
+    # ---- Phase 1: generation ------------------------------------------
     from transformers import AutoModelForImageTextToText, AutoProcessor
 
     name = cfg["model"]["name"]
     print(f"[model] loading {name} ({cfg['model']['dtype']}) ...")
     processor_kwargs = cfg["model"].get("processor_kwargs") or {}
     processor = AutoProcessor.from_pretrained(name, **processor_kwargs)
-    model = AutoModelForImageTextToText.from_pretrained(name, dtype=dtype)
-    model.to(device)
+    if cfg["model"].get("quantization") == "4bit":
+        from transformers import BitsAndBytesConfig
+        bnb = BitsAndBytesConfig(
+            load_in_4bit=True, bnb_4bit_quant_type="nf4",
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_compute_dtype=torch.bfloat16,
+        )
+        model = AutoModelForImageTextToText.from_pretrained(
+            name, quantization_config=bnb, dtype=dtype)
+    else:
+        model = AutoModelForImageTextToText.from_pretrained(name, dtype=dtype)
+        model.to(device)
+    # Optional LoRA adapter on top (e.g. the QLoRA fine-tune) — same
+    # script then scores fine-tuned and zero-shot rows identically.
+    adapter_subdir = cfg["model"].get("adapter_subdir")
+    if adapter_subdir:
+        from peft import PeftModel
+        adapter_dir = paths.EXP_CHECKPOINTS / adapter_subdir
+        print(f"[model] loading adapter {adapter_dir} ...")
+        model = PeftModel.from_pretrained(model, adapter_dir)
     model.eval()
 
     prompt = cfg["prompt"]
