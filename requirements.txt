@@ -18,7 +18,7 @@ sacrebleu
 nltk
 pycocoevalcap
 bert-score
-# clip-score and multilingual-clip pinned later once we decide on backbone
+sentence-transformers   # M-CLIPScore backbone: clip-ViT-B-32-multilingual-v1
 
 # Experiment plumbing
 pyyaml

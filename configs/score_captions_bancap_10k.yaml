@@ -1,0 +1,48 @@
+# Real-metric scoring of the bancap_full_10k adapter on the BAN-Cap val split.
+#
+# Paper-plan §C3 metric battery: multi-reference (5 refs) BLEU-1..4 +
+# CIDEr + BERTScore-bn + M-CLIPScore, under the three decode variants
+# motivated by the decode ablation + sentence diagnostics.
+#
+# Relative paths resolve against the repo root (local workstation layout;
+# on Colab, swap for /content/... absolute paths).
+
+adapter:
+  checkpoint_subdir: bancap_full_10k
+
+model:
+  name: microsoft/git-base
+  dtype: float32
+
+data:
+  loader: bancap
+  captions_path: data/raw/bancap/BAN-Cap_captiondata.csv
+  images_dir: data/raw/flickr8k/Images
+  val_fraction: 0.1
+  max_val_samples: null
+  caption_selection: first   # only sets item.caption; scoring uses all 5 refs
+
+generation:
+  batch_size: 16
+  max_new_tokens: 30
+
+variants:
+  - name: baseline_beam4
+    params: {num_beams: 4}
+  - name: beam4_penalties
+    params: {num_beams: 4, no_repeat_ngram_size: 3, length_penalty: 1.5}
+  - name: min8_no_early_stop
+    params: {num_beams: 4, min_new_tokens: 8, no_repeat_ngram_size: 3}
+
+metrics:
+  bertscore: true
+  bertscore_batch_size: 64
+  clipscore: true
+  clip_text_model: sentence-transformers/clip-ViT-B-32-multilingual-v1
+  clip_image_model: clip-ViT-B-32
+  clipscore_batch_size: 32
+
+seed: 42
+
+output:
+  results_subdir: score_captions_bancap_10k
