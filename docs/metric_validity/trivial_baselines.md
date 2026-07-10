@@ -1,0 +1,64 @@
+# No-vision trivial baselines vs real models — the actual story
+
+**Date:** 2026-07-11 · `scripts/trivial_baselines.py`. All rows scored
+with the identical multi-reference battery (pycocoevalcap BLEU/CIDEr,
+BERTScore-bn, M-CLIPScore) on the identical BAN-Cap val split
+(809 images × 5 native refs) as the real models.
+
+Baselines derive from the train split only and NEVER see the image:
+`constant` = most frequent training caption; `mode_len` = most frequent
+caption of median length; `random` = random training caption per image;
+`freq_words` = the 8 most frequent training tokens strung together
+(the "pitfall words" string), same for every image.
+
+## BAN-Cap val (5 refs, native)
+
+| System | Sees image? | B1 | B2 | B3 | B4 | CIDEr | BERTScore-F1 | M-CLIPScore |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| `constant` | no | 0.095 | 0.031 | 0.020 | 0.015 | 0.021 | 0.742 | 0.563 |
+| `mode_len` | no | 0.198 | 0.077 | 0.034 | **0.020** | 0.042 | 0.752 | 0.539 |
+| `random` | no | 0.178 | 0.046 | 0.009 | 0.000 | 0.020 | 0.732 | 0.542 |
+| `freq_words` | no | **0.457** | 0.103 | 0.000 | 0.000 | 0.104 | **0.760** | 0.542 |
+| GiT+bridge 5K | yes | 0.437 | 0.130 | 0.031 | 0.009 | 0.153 | 0.747 | 0.552 |
+| GiT+bridge 10K | yes | 0.486 | 0.133 | 0.023 | 0.000 | 0.179 | 0.753 | 0.547 |
+| GiT+bridge+img-LoRA | yes | 0.498 | 0.145 | 0.032 | 0.000 | 0.172 | 0.758 | 0.546 |
+| Qwen2-VL-2B zero-shot | yes | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.690 | **0.803** |
+| Qwen2-VL-2B QLoRA | yes | **0.532** | **0.331** | **0.177** | **0.082** | **0.300** | **0.804** | 0.561 |
+
+## Findings
+
+1. **A bag of frequent words beats real vision models on BLEU-1 and
+   BERTScore.** `freq_words` (identical no-vision string for all 809
+   images) outscores GiT-5K on BLEU-1 (0.457 vs 0.437) and ALL GiT
+   runs on BERTScore-F1 (0.760 vs ≤0.758). A single template caption
+   (`mode_len`) beats every GiT run on BLEU-4.
+2. **Our own GiT rows do not clear the no-vision band on n-gram
+   metrics.** Honest statement: the GiT-bridge motivation chain proves
+   the vocabulary mechanism, but its BAN-Cap captions are only
+   corpus-prior-plus-nouns — and the metrics show it once you add the
+   trivial rows. Any paper reporting similar numbers without trivial
+   baselines cannot distinguish its model from a frequency table.
+3. **Only the Qwen QLoRA row clears every trivial baseline on every
+   metric.** Margin is largest on CIDEr (0.300 vs ≤0.104) — tf-idf
+   weighting resists common-word gaming. CIDEr is the only n-gram
+   metric with meaningful discrimination here; BLEU-1 and BERTScore-bn
+   are effectively saturated by corpus statistics.
+4. **Metric indictment so far:** M-CLIPScore is language-blind (0.803
+   for 0% Bangla), BERTScore-bn is template-blind (0.760 for a word
+   salad), BLEU-1 is frequency-blind (0.457 for the same). The §C3
+   protocol recommendation writes itself: CIDEr + human eval, with
+   trivial-baseline rows mandatory.
+5. This is BAN-Cap — 5 diverse native refs, the HARD target. Published
+   Bangla results mostly live on BanglaLekha-family corpora (1–2
+   templated refs, truncated vocabularies, capped lengths), where the
+   trivial band sits higher still. BanglaLekha trivial rows: pending
+   (images downloading). Combined with the published-scores extraction
+   (`published_scores.md`): B4 0.408–0.439 reported there exceeds
+   anything BAN-Cap's own authors achieved with 5 refs (0.208) —
+   protocol, not model quality, is the likeliest explanation.
+6. **Constructive reading:** meaningful Bangla captioning IS possible
+   (Qwen QLoRA samples show real grounded composition) — the ceiling
+   is data (7,282 train images → 494-token output vocabulary, and
+   top-p sampling changes neither metrics nor vocabulary, ruling out
+   decode as the cause). Scale experiment: BanglaView (31,783 imgs)
+   curriculum, next.
