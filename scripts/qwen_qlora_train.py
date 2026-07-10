@@ -161,12 +161,22 @@ def main() -> None:
     model = prepare_model_for_kbit_training(model)
 
     lcfg = cfg["lora"]
-    lora = LoraConfig(
-        r=lcfg["rank"], lora_alpha=lcfg["alpha"], lora_dropout=lcfg["dropout"],
-        bias="none", target_modules=list(lcfg["target_modules"]),
-        # No task_type on purpose — same reasoning as the GiT wiring.
-    )
-    model = get_peft_model(model, lora)
+    init_subdir = lcfg.get("init_adapter_subdir")
+    if init_subdir:
+        # Curriculum stage 2+: continue training an existing adapter
+        # (e.g. BanglaView silver pretrain -> BAN-Cap gold finetune).
+        from peft import PeftModel
+        init_dir = paths.EXP_CHECKPOINTS / init_subdir
+        print(f"[lora] resuming adapter from {init_dir}")
+        model = PeftModel.from_pretrained(model, init_dir, is_trainable=True)
+    else:
+        lora = LoraConfig(
+            r=lcfg["rank"], lora_alpha=lcfg["alpha"],
+            lora_dropout=lcfg["dropout"],
+            bias="none", target_modules=list(lcfg["target_modules"]),
+            # No task_type on purpose — same reasoning as the GiT wiring.
+        )
+        model = get_peft_model(model, lora)
     model.config.use_cache = False
     trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
     total = sum(p.numel() for p in model.parameters())

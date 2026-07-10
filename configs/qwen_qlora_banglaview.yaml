@@ -1,0 +1,59 @@
+# Qwen2-VL-2B QLoRA curriculum STAGE 1: BanglaView silver pretrain.
+#
+# BanglaView (Mendeley rrv8pbxrxv, CC BY 4.0): 31,783 Flickr30k images
+# x 5 Bangla captions (Google-translated + native-annotator refinement)
+# = 158,915 captions. 4x BAN-Cap image scale. Tests the data-ceiling
+# hypothesis: the BAN-Cap-only adapter collapses to a 494-token output
+# vocabulary (refs use 4,797) and top-p sampling does not recover it —
+# the collapse is data-limited, not decode-limited.
+#
+# Same recipe as qwen_qlora_bancap.yaml; only corpus and budget change.
+# The BanglaView CSV mirrors the BAN-Cap schema so the bancap loader is
+# reused unchanged. Images live on D: (kept out of the OneDrive repo).
+#
+# Stage 2 (gold finetune on native BAN-Cap) resumes this adapter via
+# lora.init_adapter_subdir. Eval always stays on native BAN-Cap val.
+#
+# 6,000 optimizer steps x accum 4 = 24,000 samples (~0.84 epoch of the
+# 28,605-image train split). ~5.5 h on the 4060 Ti.
+
+model:
+  name: Qwen/Qwen2-VL-2B-Instruct
+  processor_kwargs:
+    max_pixels: 602112
+
+prompt: "Write a one-sentence caption for this image in the Bengali language. Reply only in Bengali."
+
+lora:
+  rank: 8
+  alpha: 16
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj]
+
+data:
+  loader: bancap   # BanglaView CSV uses the BAN-Cap schema on purpose
+  captions_path: data/raw/banglaview/banglaview_captions.csv
+  images_dir: D:\bangla-vlm-lora\flickr30k_dl\flickr30k-images
+  val_fraction: 0.1
+  max_samples: null
+  max_val_samples: null
+  caption_selection: random
+
+training:
+  steps: 6000
+  grad_accum: 4
+  lr: 1.0e-4
+  weight_decay: 0.0
+  log_every: 50
+  eval_every: 500
+  val_ce_items: 50
+
+generation:
+  max_new_tokens: 48
+  do_sample: false
+
+seed: 42
+
+output:
+  results_subdir: qwen_qlora_banglaview
+  save_adapter: true
