@@ -4,8 +4,13 @@ __pycache__/
 *.egg-info/
 .ipynb_checkpoints/
 
-# Local artifact fallback (real data lives on Drive)
+# Local artifact fallback
 _local_data/
+
+# Artifact root copied from Drive (datasets, checkpoints, results) —
+# lives in-repo on the local workstation but must never be committed
+/data/
+/experiments/
 
 # Notebook outputs (commit cleaned versions)
 notebooks/**/*.ipynb_checkpoints/

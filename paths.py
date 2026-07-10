@@ -1,18 +1,26 @@
 """Single source of truth for filesystem paths.
 
-Edit `DRIVE_ROOT` once Google Drive is mounted to switch from local testing
-to persistent storage. Everything else derives from it.
+Resolution order for the artifact root:
+1. `BANGLA_VLM_ROOT` env var (local workstation, e.g. D:\\bangla-vlm-lora)
+2. Google Drive mount (Colab)
+3. `_local_data/` inside the repo (gitignored scratch fallback)
 """
 
+import os
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent
 
-# Flip to "/content/drive/MyDrive/bangla-vlm-lora" once Drive is mounted.
 DRIVE_ROOT = Path("/content/drive/MyDrive/bangla-vlm-lora")
 LOCAL_FALLBACK = REPO_ROOT / "_local_data"
 
-ARTIFACT_ROOT = DRIVE_ROOT if DRIVE_ROOT.exists() else LOCAL_FALLBACK
+_env_root = os.environ.get("BANGLA_VLM_ROOT")
+if _env_root:
+    ARTIFACT_ROOT = Path(_env_root)
+elif DRIVE_ROOT.exists():
+    ARTIFACT_ROOT = DRIVE_ROOT
+else:
+    ARTIFACT_ROOT = LOCAL_FALLBACK
 
 DATA_RAW = ARTIFACT_ROOT / "data" / "raw"
 DATA_PROCESSED = ARTIFACT_ROOT / "data" / "processed"
