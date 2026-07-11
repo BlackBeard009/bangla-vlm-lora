@@ -62,3 +62,35 @@ caption of median length; `random` = random training caption per image;
    top-p sampling changes neither metrics nor vocabulary, ruling out
    decode as the cause). Scale experiment: BanglaView (31,783 imgs)
    curriculum, next.
+
+## BanglaLekha val (2 refs, native, templated corpus) — 2026-07-11
+
+Same baselines, BanglaLekha protocol (2 references, 915 val images):
+
+| Baseline | B1 | B2 | B3 | B4 | CIDEr |
+|---|---:|---:|---:|---:|---:|
+| `constant` (3 words, repeated) | 0.286 | 0.200 | 0.093 | 0.057 | 0.199 |
+| `mode_len` (1 template) | 0.388 | 0.257 | **0.128** | **0.061** | 0.173 |
+| `random` | 0.241 | 0.111 | 0.041 | 0.018 | 0.050 |
+| `freq_words` | **0.471** | 0.217 | 0.033 | 0.000 | 0.176 |
+
+Against published BanglaLekha rows (`published_scores.md`):
+
+- **The no-vision floor covers ~68% of published BLEU-1** (0.471 vs
+  0.665–0.694) and CIDEr 0.199 with a repeated 3-word caption.
+- **Palash et al. (arXiv:2110.12442) sits BELOW the trivial floor on
+  BLEU-4**: their table prints 2.22e-308 vs the no-vision 0.061 —
+  while their abstract claims B2 0.630. One published system is
+  distinguishable from a template only in the wrong direction.
+- **Bornon (B4 0.408) and TextMage (B4 0.238) exceed the floor 4–7×**
+  — the floor alone does not invalidate them. The remaining questions
+  for those rows are protocol ones: Keras top-5,000-word truncation
+  (applied to refs and hypotheses), corpus BLEU on 2 refs producing
+  B4 double what BAN-Cap's authors achieved with 5 refs, and the
+  field's only human eval scoring this corpus family's outputs 2.5/5.
+- Honest framing for the paper: the trivial band bounds how much of a
+  published score is corpus prior; scores near the band are
+  uninformative, scores far above it (Bornon) require protocol-level
+  scrutiny rather than dismissal. Our own GiT BanglaLekha adapter
+  scored under the same 2-ref protocol is the missing comparison row
+  (queued).

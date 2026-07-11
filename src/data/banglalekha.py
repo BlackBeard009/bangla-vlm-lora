@@ -42,6 +42,9 @@ class BanglaLekhaItem:
     image: Image.Image
     caption: str
     filename: str
+    # Both corpus captions (short summary + long description) — needed
+    # for multi-reference scoring; `caption` is one of these.
+    references: list[str] = None
 
 
 class BanglaLekhaCaptions(Dataset):
@@ -119,4 +122,9 @@ class BanglaLekhaCaptions(Dataset):
         path = self.images_dir / entry["filename"]
         with Image.open(path) as im:
             image = im.convert("RGB")
-        return BanglaLekhaItem(image=image, caption=caption.strip(), filename=entry["filename"])
+        return BanglaLekhaItem(
+            image=image,
+            caption=caption.strip(),
+            filename=entry["filename"],
+            references=[c.strip() for c in captions],
+        )
