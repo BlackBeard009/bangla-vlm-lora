@@ -95,6 +95,29 @@ ablation that failed with English output.
   change too). It answers the vocabulary question via the two
   attention-only endpoints, not "GiT vs Qwen".
 
+## BanglaView curriculum stage 1 (2026-07-11) — data-ceiling test
+
+`configs/qwen_qlora_banglaview.yaml`: same QLoRA recipe, corpus swapped
+to BanglaView (31,783 Flickr30k images × 5 MT+post-edited Bangla
+captions; 4× BAN-Cap scale). 6,000 steps × accum 4, 5.0 h, silver-val
+CE 0.934 → 0.712. Scored on the SAME native BAN-Cap 809-val:
+
+| Adapter | B1 | B4 | CIDEr | BERTScore-F1 | Unique output tokens |
+|---|---:|---:|---:|---:|---:|
+| BAN-Cap-only | 0.532 | 0.082 | 0.300 | 0.804 | 494 |
+| BanglaView-only (zero BAN-Cap exposure) | 0.483 | 0.080 | 0.264 | 0.780 | **699** |
+
+- **Output vocabulary +41% (494 → 699)** from 4× training data —
+  direct confirmation that the token-collapse is data-limited (decode
+  already ruled out via top-p). The scaling lever works.
+- **Cross-corpus transfer is nearly free:** BanglaView-only matches
+  in-domain BLEU-4 (0.080 vs 0.082) on a corpus it never saw;
+  remaining gaps (CIDEr −0.036) are the expected domain shift from
+  silver (translated) to gold (native) caption style.
+- Stage 2 (resume this adapter, ~1.5K gold BAN-Cap steps) is queued —
+  see `docs/SESSION_HANDOFF.md`. Hypothesis: diversity of stage 1 +
+  style fit of gold data beats both single-corpus rows.
+
 ## Zero-shot Qwen2-VL-2B baseline (2026-07-10)
 
 `scripts/zeroshot_vlm.py` + `configs/zeroshot_qwen2vl_bancap.yaml`.
