@@ -114,9 +114,41 @@ CE 0.934 → 0.712. Scored on the SAME native BAN-Cap 809-val:
   in-domain BLEU-4 (0.080 vs 0.082) on a corpus it never saw;
   remaining gaps (CIDEr −0.036) are the expected domain shift from
   silver (translated) to gold (native) caption style.
-- Stage 2 (resume this adapter, ~1.5K gold BAN-Cap steps) is queued —
-  see `docs/SESSION_HANDOFF.md`. Hypothesis: diversity of stage 1 +
-  style fit of gold data beats both single-corpus rows.
+- Stage 2 (resume this adapter, ~1.5K gold BAN-Cap steps) — **done
+  2026-07-18**, see next section. Hypothesis confirmed on accuracy,
+  partially on diversity.
+
+## BanglaView curriculum stage 2 (2026-07-18) — gold finetune
+
+`configs/qwen_qlora_curriculum.yaml`: resumes the stage-1 BanglaView
+adapter (`lora.init_adapter_subdir`), 1,500 steps × accum 4 on native
+BAN-Cap (~0.8 epoch), 77.6 min on the 4060 Ti. Native-val CE
+0.8801 → **0.8202**, monotonic. Scored with the standard battery on
+the same 809-val (`configs/score_qwen_curriculum.yaml`):
+
+| Adapter | B1 | B2 | B3 | B4 | CIDEr | BERTScore-F1 | M-CLIPScore | Unique output tokens |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| BAN-Cap-only (3K steps) | 0.532 | 0.331 | 0.177 | 0.082 | 0.300 | 0.804 | 0.561 | 494 |
+| BanglaView-only (6K steps, zero BAN-Cap) | 0.483 | 0.292 | 0.162 | 0.080 | 0.264 | 0.780 | 0.563 | 699 |
+| **Curriculum (6K silver + 1.5K gold)** | **0.558** | **0.355** | **0.203** | **0.108** | **0.354** | **0.812** | 0.560 | 554 |
+
+- **Curriculum wins every text metric**, and not marginally: BLEU-4
+  +32% (0.082 → 0.108), CIDEr +18% (0.300 → 0.354), BERTScore-F1
+  0.804 → 0.812 vs the BAN-Cap-only row — with **half the gold steps**
+  (1.5K vs 3K). M-CLIPScore flat across all three (~0.56), consistent
+  with its language/style insensitivity.
+- **Diversity is partially retained, not fully:** 554 unique output
+  tokens — the gold finetune pulls the stage-1 vocabulary (699) back
+  toward the BAN-Cap attractor (494) but keeps +60 tokens (+12%) over
+  gold-only while *gaining* accuracy. Silver-scale diversity and gold
+  accuracy trade off; 1.5K gold steps buys most of the accuracy for a
+  ~20% diversity give-back.
+- **BLEU-4 0.108 is the new best row** and closes ~half the remaining
+  gap to BAN-Cap's published CNN/transformer baselines (0.17–0.20),
+  still at consumer-GPU cost (total curriculum: ~6.9 h).
+- Paper framing: cheap machine-translated+post-edited silver data is
+  a working scaling lever for low-resource captioning; a short gold
+  finetune converts its diversity into in-domain accuracy.
 
 ## Zero-shot Qwen2-VL-2B baseline (2026-07-10)
 

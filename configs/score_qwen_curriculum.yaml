@@ -1,0 +1,45 @@
+# Curriculum (stage 1 silver + stage 2 gold) adapter scored on the
+# BAN-Cap val split.
+#
+# Completes the comparison triangle: BAN-Cap-only
+# (score_qwen_qlora_bancap) vs BanglaView-only
+# (score_qwen_banglaview_on_bancap) vs curriculum (this run). Same val
+# split, references, and metric battery so rows are directly
+# comparable. Output-vocabulary size (unique tokens across the 809
+# predictions) is the key diversity number: BAN-Cap-only collapsed to
+# 494, stage 1 alone reached 699, refs use 4,797.
+
+model:
+  name: Qwen/Qwen2-VL-2B-Instruct
+  dtype: bfloat16
+  quantization: 4bit
+  adapter_subdir: qwen_qlora_curriculum
+  processor_kwargs:
+    max_pixels: 602112   # 768 * 28 * 28
+
+prompt: "Write a one-sentence caption for this image in the Bengali language. Reply only in Bengali."
+
+data:
+  loader: bancap
+  captions_path: data/raw/bancap/BAN-Cap_captiondata.csv
+  images_dir: data/raw/flickr8k/Images
+  val_fraction: 0.1
+  max_val_samples: null
+  caption_selection: first
+
+generation:
+  max_new_tokens: 48
+  do_sample: false
+
+metrics:
+  bertscore: true
+  bertscore_batch_size: 64
+  clipscore: true
+  clip_text_model: sentence-transformers/clip-ViT-B-32-multilingual-v1
+  clip_image_model: clip-ViT-B-32
+  clipscore_batch_size: 32
+
+seed: 42
+
+output:
+  results_subdir: score_qwen_curriculum
