@@ -1,0 +1,57 @@
+# Qwen2-VL-2B QLoRA curriculum STAGE 2: gold finetune on native BAN-Cap.
+#
+# Resumes the BanglaView silver-pretrained adapter (stage 1,
+# configs/qwen_qlora_banglaview.yaml) and continues training on the
+# native BAN-Cap corpus. Tests whether the 4x silver data stage recovers
+# reference-vocabulary coverage that BAN-Cap-only training collapses
+# (494 unique output tokens vs 4,797 in refs; stage 1 alone reached 699).
+#
+# Same recipe as qwen_qlora_bancap.yaml; only the adapter init and the
+# budget change. 1,500 optimizer steps x accum 4 = 6,000 samples
+# (~0.8 epoch of the 7,282-image train split). ~80 min on the 4060 Ti.
+#
+# Comparison triangle after scoring on BAN-Cap val:
+#   BAN-Cap-only (qwen_qlora_bancap) vs BanglaView-only
+#   (qwen_qlora_banglaview) vs curriculum (this run).
+
+model:
+  name: Qwen/Qwen2-VL-2B-Instruct
+  processor_kwargs:
+    max_pixels: 602112   # 768 * 28 * 28 — same cap as the zero-shot run
+
+prompt: "Write a one-sentence caption for this image in the Bengali language. Reply only in Bengali."
+
+lora:
+  rank: 8
+  alpha: 16
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj]
+  init_adapter_subdir: qwen_qlora_banglaview
+
+data:
+  loader: bancap
+  captions_path: data/raw/bancap/BAN-Cap_captiondata.csv
+  images_dir: data/raw/flickr8k/Images
+  val_fraction: 0.1
+  max_samples: null
+  max_val_samples: null
+  caption_selection: random
+
+training:
+  steps: 1500
+  grad_accum: 4
+  lr: 1.0e-4
+  weight_decay: 0.0
+  log_every: 25
+  eval_every: 250
+  val_ce_items: 50
+
+generation:
+  max_new_tokens: 48
+  do_sample: false
+
+seed: 42
+
+output:
+  results_subdir: qwen_qlora_curriculum
+  save_adapter: true
