@@ -1,0 +1,48 @@
+# Real-metric scoring of the banglalekha_full adapter under the
+# published BanglaLekha protocol (2 references per image).
+#
+# Completes the metric-validity triplet on the corpus most published
+# Bangla-captioning papers use: published number vs our-honest-model
+# vs no-vision trivial floor (trivial_baselines_banglalekha.yaml).
+# Same decode variants + metric battery as score_captions_bancap.yaml
+# so rows are comparable across corpora.
+
+adapter:
+  checkpoint_subdir: banglalekha_full
+
+model:
+  name: microsoft/git-base
+  dtype: float32
+
+data:
+  loader: banglalekha
+  captions_path: data/raw/banglalekha/captions.json
+  images_dir: D:\bangla-vlm-lora\banglalekha_dl\images
+  val_fraction: 0.1
+  max_val_samples: null
+  caption_selection: first   # only sets item.caption; scoring uses both refs
+
+generation:
+  batch_size: 16
+  max_new_tokens: 30
+
+variants:
+  - name: baseline_beam4
+    params: {num_beams: 4}
+  - name: beam4_penalties
+    params: {num_beams: 4, no_repeat_ngram_size: 3, length_penalty: 1.5}
+  - name: min8_no_early_stop
+    params: {num_beams: 4, min_new_tokens: 8, no_repeat_ngram_size: 3}
+
+metrics:
+  bertscore: true
+  bertscore_batch_size: 64
+  clipscore: true
+  clip_text_model: sentence-transformers/clip-ViT-B-32-multilingual-v1
+  clip_image_model: clip-ViT-B-32
+  clipscore_batch_size: 32
+
+seed: 42
+
+output:
+  results_subdir: score_captions_banglalekha

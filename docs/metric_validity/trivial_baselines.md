@@ -63,21 +63,50 @@ caption of median length; `random` = random training caption per image;
    decode as the cause). Scale experiment: BanglaView (31,783 imgs)
    curriculum, next.
 
-## BanglaLekha val (2 refs, native, templated corpus) — 2026-07-11
+## BanglaLekha val (2 refs, native, templated corpus) — completed 2026-07-18
 
-Same baselines, BanglaLekha protocol (2 references, 915 val images):
+Same baselines, BanglaLekha protocol (2 references, 915 val images),
+now with the full battery (rerun of the 2026-07-11 n-gram-only pass;
+all n-gram values reproduce exactly) **plus the missing comparison
+row**: our GiT-bridge `banglalekha_full` adapter under the identical
+protocol. The adapter was retrained locally 2026-07-18
+(`configs/banglalekha_full_local.yaml`, same recipe + seed as the
+Colab run; final val CE 2.561 vs Colab's 2.55 — cross-platform
+reproduction) because the original lives only on Google Drive. Scored
+via `configs/score_captions_banglalekha.yaml`; GiT row below is the
+`min8_no_early_stop` default decode (BERTScore-F1 shown for
+`baseline_beam4`, its best variant, in parentheses).
 
-| Baseline | B1 | B2 | B3 | B4 | CIDEr |
-|---|---:|---:|---:|---:|---:|
-| `constant` (3 words, repeated) | 0.286 | 0.200 | 0.093 | 0.057 | 0.199 |
-| `mode_len` (1 template) | 0.388 | 0.257 | **0.128** | **0.061** | 0.173 |
-| `random` | 0.241 | 0.111 | 0.041 | 0.018 | 0.050 |
-| `freq_words` | **0.471** | 0.217 | 0.033 | 0.000 | 0.176 |
+| System | Sees image? | B1 | B2 | B3 | B4 | CIDEr | BERTScore-F1 | M-CLIPScore |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| `constant` (3 words, repeated) | no | 0.286 | 0.200 | 0.093 | 0.057 | 0.199 | **0.798** | 0.497 |
+| `mode_len` (1 template) | no | 0.388 | 0.257 | **0.128** | **0.061** | 0.173 | 0.742 | 0.557 |
+| `random` | no | 0.241 | 0.111 | 0.041 | 0.018 | 0.050 | 0.745 | **0.558** |
+| `freq_words` | no | **0.471** | 0.217 | 0.033 | 0.000 | 0.176 | 0.738 | 0.546 |
+| GiT+bridge `banglalekha_full` | yes | 0.465 | 0.080 | 0.015 | 0.000 | **0.279** | 0.715 (0.745) | 0.530 |
 
-Against published BanglaLekha rows (`published_scores.md`):
+Findings, now with all three triplet rows in hand:
 
+- **The vision model clears the no-vision band ONLY on CIDEr**
+  (0.279 vs ≤0.199). On BLEU-1 it loses to `freq_words` (0.465 vs
+  0.471), on BLEU-2..4 it loses to a single repeated template, and on
+  BERTScore-F1 the constant 3-word caption beats it by 5 points
+  (0.798 vs 0.745). Same shape as the BAN-Cap table: CIDEr is the
+  only metric with discrimination on templated corpora.
+- **The constant caption's BERTScore-F1 0.798 is the single most
+  damning number in the study** — a no-vision 3-word string scores
+  within 0.006 of the Qwen QLoRA system's 0.804 on BAN-Cap. BERTScore
+  absolute values carry ~no signal across these corpora.
 - **The no-vision floor covers ~68% of published BLEU-1** (0.471 vs
   0.665–0.694) and CIDEr 0.199 with a repeated 3-word caption.
+- **Our honest vision model covers only ~68% of published BLEU-1
+  too** (0.465 vs 0.665–0.694) — i.e., published BanglaLekha B1 sits
+  ~0.2 above BOTH our trained model and the trivial floor, while
+  published B4 (Bornon 0.408) exceeds our model's 0.000 by the full
+  scale. Either those pipelines are far better than a bridged
+  GiT-base — or (per the protocol-chaos notes) vocabulary truncation,
+  length caps, and corpus-BLEU choices inflate the numbers. The
+  triplet cannot decide which; the human-eval row can.
 - **Palash et al. (arXiv:2110.12442) sits BELOW the trivial floor on
   BLEU-4**: their table prints 2.22e-308 vs the no-vision 0.061 —
   while their abstract claims B2 0.630. One published system is
@@ -91,6 +120,4 @@ Against published BanglaLekha rows (`published_scores.md`):
 - Honest framing for the paper: the trivial band bounds how much of a
   published score is corpus prior; scores near the band are
   uninformative, scores far above it (Bornon) require protocol-level
-  scrutiny rather than dismissal. Our own GiT BanglaLekha adapter
-  scored under the same 2-ref protocol is the missing comparison row
-  (queued).
+  scrutiny rather than dismissal.

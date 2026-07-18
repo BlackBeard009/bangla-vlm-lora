@@ -9,9 +9,9 @@ data:
   caption_selection: random
 
 metrics:
-  bertscore: false
+  bertscore: true
   bertscore_batch_size: 64
-  clipscore: false
+  clipscore: true
   clip_text_model: sentence-transformers/clip-ViT-B-32-multilingual-v1
   clip_image_model: clip-ViT-B-32
   clipscore_batch_size: 32
