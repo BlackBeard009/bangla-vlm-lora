@@ -1,0 +1,43 @@
+# SemMargin gauntlet: every system with saved BAN-Cap predictions,
+# scored under margin-normalized semantic similarity. The gauntlet
+# tests the METRIC, not the systems — see scripts/semantic_margin_gauntlet.py.
+
+model_name: sentence-transformers/LaBSE
+
+systems:
+  - name: trivial constant
+    results_subdir: trivial_baselines_bancap
+    variant: constant
+  - name: trivial mode_len
+    results_subdir: trivial_baselines_bancap
+    variant: mode_len
+  - name: trivial random
+    results_subdir: trivial_baselines_bancap
+    variant: random
+  - name: trivial freq_words
+    results_subdir: trivial_baselines_bancap
+    variant: freq_words
+  - name: Qwen2-VL zero-shot (0% Bangla)
+    results_subdir: zeroshot_qwen2vl_bancap
+    variant: zero_shot
+  - name: GiT+bridge 5K
+    results_subdir: score_captions_bancap
+    variant: min8_no_early_stop
+  - name: GiT+bridge 10K
+    results_subdir: score_captions_bancap_10k
+    variant: min8_no_early_stop
+  - name: GiT+bridge img-LoRA
+    results_subdir: score_captions_img_lora_10k
+    variant: min8_no_early_stop
+  - name: Qwen QLoRA BAN-Cap
+    results_subdir: score_qwen_qlora_bancap
+    variant: zero_shot
+  - name: Qwen QLoRA BanglaView
+    results_subdir: score_qwen_banglaview_on_bancap
+    variant: zero_shot
+  - name: Qwen curriculum
+    results_subdir: score_qwen_curriculum
+    variant: zero_shot
+
+output:
+  results_subdir: semantic_margin_gauntlet
