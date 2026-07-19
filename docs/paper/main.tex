@@ -1,0 +1,598 @@
+% =====================================================================
+% What Actually Limits Bangla Image Captioning?
+% A Controlled LoRA Study with an Honest Evaluation Framework
+%
+% Draft manuscript (working copy, 2026-07-18). Compiles with pdfLaTeX
+% (e.g., Overleaf default). Bangla examples appear in romanized form
+% with English glosses; the submission version will typeset Bangla
+% script via XeLaTeX + a Bengali font.
+%
+% Human-evaluation pilot results are PENDING and marked as such.
+% =====================================================================
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{multirow}
+\usepackage{url}
+\usepackage[hidelinks]{hyperref}
+\usepackage{xcolor}
+
+\newcommand{\pending}[1]{\textcolor{red!70!black}{[PENDING: #1]}}
+\newcommand{\semmargin}{\textsc{SemMargin}}
+
+\title{What Actually Limits Bangla Image Captioning?\\
+\large A Controlled LoRA Study with an Honest Evaluation Framework}
+
+\author{Onik Jahan Sagor\\
+\small \textit{Draft manuscript --- July 2026}}
+
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Bangla, spoken by roughly 270 million people, remains poorly served by
+modern vision--language models (VLMs), and published Bangla captioning
+results are difficult to interpret: they span an order of magnitude on
+the same corpora, rarely name their evaluation protocol, and have never
+been checked against trivial baselines. We present a controlled study
+that separates the real bottlenecks from the measurement noise. First,
+through a six-stage ablation ladder on GiT-base, we show that
+\emph{vocabulary coverage}, not trainable capacity, decides whether a
+VLM can produce Bangla at all: attention-only LoRA, head retraining,
+and full embedding retraining all fail identically until the tokenizer
+is extended with 29{,}055 Bangla wordpieces, at which point Bangla
+generation emerges immediately. The converse experiment on
+Qwen2-VL-2B---whose vocabulary already covers Bangla but which produces
+zero Bangla captions zero-shot---shows the same attention-only LoRA
+recipe unlocking fluent Bangla within 120 training samples. Second, we
+show that caption \emph{composition} is bound by decoder depth and
+output \emph{diversity} by data scale, and that a two-stage curriculum
+(machine-translated-then-post-edited silver corpus, followed by a short
+native-gold finetune) yields our best system: BLEU-4 0.108 and CIDEr
+0.354 on BAN-Cap with 0.178\% trainable parameters and under seven
+hours on a consumer 8\,GB GPU. Third, we audit the evaluation practice
+of the field: no-vision baselines match or beat trained models on
+BLEU-1 and BERTScore; multilingual CLIPScore assigns its highest score
+to output containing no Bangla whatsoever; and a faithful
+reproduction of the strongest published BanglaLekha system (reported
+BLEU-4 0.408) reaches only 0.064 under the paper's own stated protocol
+--- while the scorer implementation alone moves BLEU-4 by $+68\%$. We
+introduce \semmargin{}, a corpus-prior-corrected semantic similarity
+metric that scores all no-vision baselines at exactly zero by
+construction, and we release a blinded human-evaluation protocol for
+Bangla captioning. All experiments are reproducible from configuration
+files on a single consumer GPU.
+\end{abstract}
+
+% =====================================================================
+\section{Introduction}
+% =====================================================================
+
+Image captioning for high-resource languages has been transformed by
+large pre-trained vision--language models, but Bangla --- among the
+world's most spoken languages --- still relies on small CNN--LSTM and
+CNN--transformer pipelines trained from scratch on corpora of fewer
+than ten thousand images. Reported results are hard to build on: BLEU-4
+scores on the BanglaLekha corpus range from $2.2\times10^{-308}$
+\cite{palash2021} to 0.408 \cite{bornon2021} for architecturally
+similar systems, no published Bangla captioning paper names its BLEU
+implementation, and none reports a no-vision baseline.
+
+This paper asks two questions. \textbf{(Q1) What actually limits a
+modern VLM's ability to caption images in Bangla?} We answer with a
+chain of controlled experiments that isolate three walls ---
+vocabulary coverage, decoder depth, and data scale --- and a
+curriculum recipe that addresses the third on a consumer GPU.
+\textbf{(Q2) Can the standard evaluation practice of the field detect
+progress at all?} We answer mostly in the negative, with three
+experiments --- trivial-baseline flooring, a published-score audit
+with a full recipe reproduction, and a metric-blindness study --- and
+we contribute the corrective: a specificity-corrected similarity
+metric (\semmargin{}) and a blinded human-evaluation protocol.
+
+Our contributions:
+\begin{enumerate}
+  \item \textbf{Mechanism (C1).} A six-stage ablation ladder
+  establishing that vocabulary coverage is necessary and sufficient
+  for Bangla generation capability in a frozen-backbone LoRA setting,
+  demonstrated in both directions (GiT-base without coverage;
+  Qwen2-VL-2B with it). A vocabulary/embedding bridge recipe (tokenizer
+  extension + donor embedding initialization) that unlocks Bangla in a
+  model with essentially no Bangla tokens.
+  \item \textbf{Recipe (C2).} A QLoRA + curriculum recipe --- silver
+  pretraining on a 4$\times$ machine-translated-then-post-edited
+  corpus followed by a short gold finetune --- that improves every
+  text metric over gold-only training with half the gold budget
+  (BLEU-4 $0.082 \to 0.108$, CIDEr $0.300 \to 0.354$) while retaining
+  output-vocabulary diversity, at a total cost of $\sim$7 GPU-hours on
+  an 8\,GB RTX 4060 Ti.
+  \item \textbf{Evaluation audit (C3).} The first trivial-baseline
+  flooring of Bangla captioning metrics; a documented protocol audit
+  of the published literature; and, to our knowledge, the first full
+  reproduction attempt of a published Bangla captioning system, which
+  fails to reproduce by a factor of 6.4$\times$ under the original
+  paper's own stated protocol.
+  \item \textbf{Metric + benchmark (C4).} \semmargin{}, a
+  corpus-prior-corrected semantic similarity metric that zeroes all
+  no-vision baselines by construction while reproducing the system
+  ranking of the full n-gram study; and a blinded adequacy/fluency
+  human-evaluation protocol with a public annotation tool.
+  \pending{pilot human ratings and metric--human correlation table}
+\end{enumerate}
+
+% =====================================================================
+\section{Related Work}
+% =====================================================================
+
+\paragraph{Bangla image captioning.} Chittron \cite{chittron2019}
+introduced the task with a VGG16+LSTM pipeline and, notably, its
+authors already flagged BLEU as ``admittedly extremely poor'' with a
+single reference. Subsequent work --- Bornon \cite{bornon2021}
+(InceptionV3 + transformer), CNN--Transformer \cite{palash2021}
+(ResNet-101 + transformer), BAN-Cap's own adaptive-attention baseline
+\cite{bancap2022}, and BiCap \cite{bicap2025} --- evaluates exclusively
+with n-gram metrics on one- or two-reference corpora. Section
+\ref{sec:audit} examines this literature quantitatively.
+
+\paragraph{PEFT for multilingual VLMs.} PALO \cite{palo2024}, mBLIP
+\cite{mblip2023}, Chitrarth \cite{chitrarth2025}, and Chitranuvad
+\cite{chitranuvad2025} extend VLMs to Indic and other languages at
+scale, generally with backbones whose tokenizers already cover the
+target languages (or with full finetuning). None studies Bangla in a
+dedicated PEFT setting, and none isolates vocabulary coverage as a
+variable; our ablation ladder does exactly that. LoRA
+\cite{lora2021} and QLoRA \cite{qlora2023} provide the adaptation
+machinery.
+
+\paragraph{Captioning evaluation.} Critiques of n-gram captioning
+metrics are long-standing \cite{kilickaya2017}. Reference-free scoring
+via CLIPScore \cite{clipscore2021} and learned metrics such as Polos
+\cite{polos2024} are validated only for English. The
+\emph{distinctiveness} line of work --- CIDErBtw \cite{ciderbtw2020}
+and the group embedding gap \cite{geg2022} --- contrasts a caption's
+similarity to its own image against similar images; \semmargin{}
+adapts this device to the reference-text side, over the full
+evaluation corpus, as a general quality metric for settings where
+image--text encoders are unreliable (which, as we show for Bangla,
+they are).
+
+% =====================================================================
+\section{The Vocabulary Wall}
+\label{sec:vocab}
+% =====================================================================
+
+\subsection{Tokenizer audit}
+
+We measured tokenizer fertility (subword pieces per word) on 2{,}000
+Bangla Wikipedia sentences across nine tokenizers, and re-ran the audit
+on BAN-Cap captions. GiT-base \cite{git2022} inherits
+\texttt{bert-base-uncased}: only 72 of its 30{,}522 tokens contain any
+Bangla codepoint, fertility is 4.88, and 2.5\% of tokens are unknown.
+BanglaBERT \cite{banglabert2022} scores 1.35 on the same text. Our
+bridged tokenizer (below) reaches 1.33 on Wikipedia and exactly ties
+BanglaBERT (1.176) on BAN-Cap captions. Byte-level BPE tokenizers
+(Qwen2-VL, Florence-2) report zero Bangla vocabulary by codepoint
+counting --- a metric artifact of byte encoding; for those, fertility
+and round-trip fidelity are the meaningful measures.
+
+\subsection{A six-stage ablation ladder}
+
+All stages use GiT-base with identical data and decoding; only the
+adaptation surface changes.
+
+\begin{enumerate}
+  \item \textbf{Full finetuning} converges (loss $12.3 \to 5.1$) but
+  generates only a malformed repetition of the single Bangla-adjacent
+  wordpiece in the vocabulary.
+  \item \textbf{Attention-only LoRA} (0.125\% trainable): the model
+  answers in \emph{English} --- with embeddings and head frozen it
+  cannot even reach its few Bangla tokens.
+  \item \textbf{LoRA + trained LM head}: loss drops to 3.46; output
+  identical to full finetuning's malformed repetition.
+  \item \textbf{LoRA + head + embeddings} (+24M trainable parameters):
+  output \emph{identical} to stage 3. No weight adjustment can create
+  tokens that do not exist.
+  \item \textbf{The bridge}: we extend the vocabulary with 29{,}055
+  BanglaBERT wordpieces ($30{,}522 \to 59{,}577$), initializing new
+  input embeddings from the donor model. Generation immediately flips
+  to real (if trivial) Bangla.
+  \item \textbf{The converse, on a modern VLM
+  (Sec.~\ref{sec:qwen})}: Qwen2-VL-2B's byte-BPE vocabulary covers
+  Bangla, yet zero-shot it produces \textbf{0 of 809} Bangla captions.
+  The \emph{same attention-only LoRA that failed in stage 2} ---
+  0.178\% trainable, vision tower and embeddings frozen --- produces
+  fluent Bangla within $\sim$120 training samples and 809/809 Bangla
+  outputs after training.
+\end{enumerate}
+
+Together, stages 1--6 close the argument in both directions:
+\textbf{vocabulary coverage is the deciding factor} between the two
+failure modes, weight capacity is not the bottleneck, and the bridge
+buys coverage when the base model lacks it.
+
+% =====================================================================
+\section{The Depth and Data Walls}
+\label{sec:depth}
+% =====================================================================
+
+\subsection{Composition is decoder-bound}
+
+The bridged GiT trained on real corpora produces genuine but
+\emph{templated} Bangla. Three post-hoc diagnostics on the trained
+adapters locate the cause. (i) \emph{Image scrambling}: replacing
+inputs with gray/noise/shuffled images shows the model takes nouns
+from the image but not sentence structure. (ii) \emph{Forced-length
+decoding} triples output length without producing grammar, refuting a
+``hidden composition'' hypothesis. (iii) \emph{Per-reference
+cross-entropy} exposed an evaluation bias in the two-reference
+BanglaLekha corpus (3.76$\times$ perplexity gap between short and long
+references) that our corpus migration to BAN-Cap \cite{bancap2022}
+(five native references per image) structurally removed
+(1.14$\times$).
+
+Budget and placement controls confirm the diagnosis: doubling training
+steps and adding image-tower LoRA each improve unigram precision
+(BLEU-1 up to 0.498) but leave BLEU-4 at 0.000. Only the 28-layer
+decoder of Qwen2-VL-2B breaks the composition wall (BLEU-4
+$0.000 \to 0.082$), at 0.178\% trainable parameters.
+
+\subsection{Diversity is data-bound, and a curriculum fixes it}
+\label{sec:qwen}
+
+The BAN-Cap-trained Qwen adapter collapses to \textbf{494 unique
+output tokens} across the 809-image validation set (references use
+4{,}797); top-p sampling does not recover the missing vocabulary, so
+the collapse is data-limited, not decode-limited. We therefore
+pretrained the same recipe on BanglaView --- 31{,}783 Flickr30k images
+with five machine-translated-then-native-post-edited captions each,
+4$\times$ the image scale --- and then resumed the adapter for 1{,}500
+steps on native BAN-Cap.
+
+\begin{table}[t]
+\centering
+\caption{BAN-Cap validation (809 images, 5 native references).
+Curriculum = BanglaView silver pretrain (6k steps) + gold finetune
+(1.5k steps). Unique tokens counts distinct words across all 809
+predictions (references: 4{,}797).}
+\label{tab:curriculum}
+\small
+\begin{tabular}{lccccccc}
+\toprule
+Adapter & B1 & B2 & B3 & B4 & CIDEr & BERTScore-F1 & Uniq.\ tokens \\
+\midrule
+BAN-Cap-only (3k steps) & 0.532 & 0.331 & 0.177 & 0.082 & 0.300 & 0.804 & 494 \\
+BanglaView-only (6k steps) & 0.483 & 0.292 & 0.162 & 0.080 & 0.264 & 0.780 & \textbf{699} \\
+\textbf{Curriculum} & \textbf{0.558} & \textbf{0.355} & \textbf{0.203} & \textbf{0.108} & \textbf{0.354} & \textbf{0.812} & 554 \\
+\midrule
+Published BAN-Cap baseline \cite{bancap2022} & 0.738 & 0.495 & 0.329 & 0.208 & 0.308 & --- & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:curriculum}: the curriculum wins \emph{every} text
+metric over gold-only training --- BLEU-4 $+32\%$, CIDEr $+18\%$ ---
+with half the gold budget, and retains a $+12\%$ vocabulary advantage
+over the gold-only collapse. Cross-corpus transfer is nearly free
+(BanglaView-only matches in-domain BLEU-4 on a corpus it never saw).
+The published BAN-Cap row is a full-finetuned, task-specific
+architecture; our system reaches roughly half its BLEU-4 with 0.178\%
+trainable parameters and $\sim$7 hours on an 8\,GB consumer GPU ---
+and Section~\ref{sec:audit} gives strong reasons to treat all
+cross-paper comparisons with caution.
+
+% =====================================================================
+\section{Can the Field's Evaluation Detect Progress?}
+\label{sec:audit}
+% =====================================================================
+
+\subsection{No-vision baselines floor the metrics}
+
+We scored four trivial baselines that never see the image ---
+\texttt{constant} (most frequent training caption), \texttt{mode\_len}
+(most frequent caption of median length), \texttt{random} (random
+training caption), \texttt{freq\_words} (the eight most frequent
+training tokens strung together) --- under the identical multi-reference
+battery as every real system.
+
+\begin{table}[t]
+\centering
+\caption{Selected rows, BAN-Cap val (809 $\times$ 5 refs). A bag of
+frequent words beats real vision systems on BLEU-1 and BERTScore; only
+CIDEr and \semmargin{} (Sec.~\ref{sec:semmargin}) resist.}
+\label{tab:trivial}
+\small
+\begin{tabular}{llcccccc}
+\toprule
+System & Sees image? & B1 & B4 & CIDEr & BERTScore-F1 & M-CLIPScore \\
+\midrule
+\texttt{freq\_words} & no & 0.457 & 0.000 & 0.104 & 0.760 & 0.542 \\
+\texttt{mode\_len} & no & 0.198 & 0.020 & 0.042 & 0.752 & 0.539 \\
+GiT+bridge (best) & yes & 0.498 & 0.000 & 0.172 & 0.758 & 0.546 \\
+Qwen2-VL zero-shot (0\% Bangla) & yes & 0.000 & 0.000 & 0.000 & 0.690 & \textbf{0.803} \\
+Qwen QLoRA curriculum & yes & \textbf{0.558} & \textbf{0.108} & \textbf{0.354} & \textbf{0.812} & 0.560 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Three metric indictments follow from Table~\ref{tab:trivial}.
+\textbf{BLEU-1 is frequency-blind}: a fixed word salad scores 0.457.
+\textbf{BERTScore is template-blind}: on the two-reference BanglaLekha
+protocol a constant three-word caption reaches BERTScore-F1
+\textbf{0.798} --- within 0.006 of our best real system's BAN-Cap
+score. \textbf{M-CLIPScore is language-blind}: it assigns its highest
+score (0.803) to the zero-shot system whose 809 outputs contain no
+Bangla codepoint at all. Only CIDEr's tf-idf weighting resists
+common-word gaming, and even it leaks 0.104 to the no-vision band. Our
+own GiT rows do \emph{not} clear the no-vision band on n-gram metrics
+--- an honest negative we believe every captioning paper should be
+required to report.
+
+\subsection{The published literature does not reproduce}
+
+A full-text audit of published Bangla captioning results found:
+sentence-level and corpus-level BLEU mixed freely; a published BLEU-4
+of $2.2\times10^{-308}$ (an unsmoothed zero) in a paper whose abstract
+claims BLEU-2 of 0.630 \cite{palash2021}; reference-count effects worth
+$0.738 \to 0.480$ BLEU-1 on the same model (BAN-Cap's own ablation
+\cite{bancap2022}); vocabulary truncation to the top 5{,}000
+\cite{bornon2021} or top 1{,}500 words; and cross-paper baseline rows
+that do not match the cited papers.
+
+We went one step further and \textbf{reproduced the strongest
+published BanglaLekha system}: Bornon's transformer \cite{bornon2021}
+(reported B1/B2/B3/B4 = 0.665/0.556/0.476/\textbf{0.408}). No code or
+weights were released; we reimplemented the paper's stated recipe
+exactly --- InceptionV3 features, 3-layer/1-head transformer, top-5{,}000
+Keras tokenizer, 7{,}154/1{,}000/1{,}000 split, 50 epochs, Adam with
+the Vaswani schedule --- trained it to full convergence, and scored the
+same predictions three ways (Table~\ref{tab:bornon}).
+
+\begin{table}[t]
+\centering
+\caption{Bornon reproduction on BanglaLekha (2 refs, 1{,}000 test
+images). The same trained model, three scoring protocols.}
+\label{tab:bornon}
+\small
+\begin{tabular}{lcccc}
+\toprule
+Scoring protocol & B1 & B2 & B3 & B4 \\
+\midrule
+Published \cite{bornon2021} & 0.665 & 0.556 & 0.476 & 0.408 \\
+Ours --- their stated protocol (NLTK, top-5000) & 0.374 & 0.206 & 0.111 & 0.064 \\
+Ours --- same scorer, no truncation & 0.367 & 0.203 & 0.109 & 0.063 \\
+Ours --- pycocoevalcap & 0.452 & 0.288 & 0.172 & 0.106 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Findings: (i) the published number does not reproduce from the
+information the paper provides --- a 6.4$\times$ BLEU-4 gap that no
+protocol variant we tested closes; (ii) the scorer implementation
+alone (NLTK vs.\ pycocoevalcap) moves BLEU-4 by $+68\%$ on identical
+predictions --- a free parameter in every published number, since no
+paper names its implementation; (iii) the suspected top-5{,}000
+truncation mechanism is \emph{innocent} on this corpus (its fitted
+vocabulary is only 5{,}075 words) --- the audit kills one of its own
+hypotheses; and (iv) under honest scoring the reproduced architecture
+is actually the \emph{best} honest BanglaLekha system we measured
+(CIDEr 0.495, 2.5$\times$ the trivial floor) --- the field's models
+were better than its numbers were meaningful. We state explicitly:
+this is a recipe reproduction under documented assumptions, not a
+rerun of the original artifact, and it accuses no one; it measures
+what the published information suffices to reproduce.
+
+\subsection{\semmargin{}: subtracting the corpus prior}
+\label{sec:semmargin}
+
+Generic captions defeat embedding-similarity metrics because they sit
+near the semantic centroid of the corpus. We correct for this
+directly. With $e(\cdot)$ a sentence encoder (LaBSE
+\cite{labse2022}), hypothesis $h_i$ for image $i$, and reference sets
+$R_j$:
+\begin{align}
+\mathrm{raw}(h_i) &= \tfrac{1}{|R_i|}\textstyle\sum_{r \in R_i} \cos(e(h_i), e(r)),\\
+\mathrm{prior}(h_i) &= \tfrac{1}{n-1}\textstyle\sum_{j \neq i} \tfrac{1}{|R_j|}\sum_{r \in R_j} \cos(e(h_i), e(r)),\\
+\semmargin(h_i) &= \mathrm{raw}(h_i) - \mathrm{prior}(h_i).
+\end{align}
+A caption equally similar to every image's references --- any generic
+caption --- scores zero \emph{by construction}. The device follows the
+distinctiveness literature (CIDErBtw \cite{ciderbtw2020}, GEG
+\cite{geg2022}); our formulation is reference-text-side, over the full
+evaluation corpus, with no image encoder (unusable for Bangla, per the
+M-CLIPScore result) and no curated similar-image sets.
+
+\begin{table}[t]
+\centering
+\caption{\semmargin{} on BAN-Cap val. ``rank'' is the mean percentile
+of the own-image similarity among all images (reference-side
+self-retrieval). Human ceiling: each first reference scored against
+the remaining four.}
+\label{tab:semmargin}
+\small
+\begin{tabular}{lcccc}
+\toprule
+System & raw & prior & margin & rank \\
+\midrule
+Trivial baselines (all four) & 0.28--0.48 & = raw & \textbf{0.000} & 0.50 \\
+GiT+bridge (three variants) & 0.53 & 0.38 & 0.145--0.153 & 0.91 \\
+Qwen QLoRA BAN-Cap & 0.644 & 0.466 & 0.177 & 0.937 \\
+Qwen QLoRA curriculum & 0.661 & 0.471 & \textbf{0.190} & 0.953 \\
+Human (held-out reference) & 0.647 & 0.437 & 0.210 & 0.968 \\
+Qwen2-VL zero-shot (0\% Bangla) & 0.601 & 0.361 & 0.240 & 0.980 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:semmargin}: the raw column shows plain embedding cosine
+--- the uncorrected metric --- giving templates 0.43--0.48, nearly
+indistinguishable from real systems; the margin column zeroes them
+exactly. The margin reproduces the system ordering of the full n-gram
+study with no shared machinery, and the curriculum system reaches 91\%
+of the human held-out-reference margin. The one deliberate failure ---
+the English-output zero-shot row tops the table because LaBSE is
+cross-lingual by design --- demonstrates that \semmargin{} measures
+the \emph{specificity} axis only, and must be paired with a trivially
+computable language-fidelity gate. We argue this three-axis
+decomposition (language fidelity, specificity, fluency/adequacy) is
+the correct shape for low-resource captioning evaluation: every metric
+failure documented above is a collapse of one axis into another.
+
+\subsection{Human evaluation}
+
+We built a blinded protocol: 20 seeded-random BAN-Cap validation
+images $\times$ 4 systems (GiT image-tower LoRA, Qwen QLoRA gold-only,
+Qwen curriculum, and a trivial template as attention check), captions
+shuffled per image, system identities withheld, adequacy and fluency
+on anchored 1--5 Likert scales, collected through a purpose-built web
+annotation tool with reviewer-uniqueness checks. Ratings feed
+per-system means, Krippendorff's $\alpha$, and per-caption
+metric--human correlations for every metric in this paper.
+
+\pending{Pilot ratings are being collected at the time of this draft.
+The correlation table --- including whether \semmargin{} tracks human
+adequacy better than BLEU/BERTScore, as its construction predicts ---
+will complete Section 5. The full C3 benchmark (200 images $\times$ 3
+annotators) is planned as the scaled follow-up.}
+
+% =====================================================================
+\section{Efficiency}
+% =====================================================================
+
+All results were produced on one RTX 4060 Ti (8\,GB). Representative
+wall-clock: Qwen2-VL-2B QLoRA gold-only, 2.7\,h; BanglaView silver
+stage, 5.0\,h; gold finetune stage, 78\,min; full 809-image scoring
+battery, $\sim$35\,min; the Bornon reproduction trains in 13\,min. The
+complete curriculum system costs $\sim$7 GPU-hours --- the point being
+that honest, reproducible Bangla captioning research is feasible
+without institutional compute.
+
+% =====================================================================
+\section{Limitations}
+% =====================================================================
+
+Our best BLEU-4 (0.108) remains below BAN-Cap's published full-FT
+baseline (0.208) --- though Section~\ref{sec:audit} shows why
+cross-paper numbers deserve scrutiny, ours included. The Bornon
+reproduction rests on documented assumptions where the paper is
+silent (d\_model, decoding, seed); its conclusion is about
+reproducibility-from-published-information, not about the original
+artifact. \semmargin{} requires a multilingual sentence encoder and
+inherits its biases; its human validation is pending. The human-eval
+pilot is small (20 images) and its annotator pool is a convenience
+sample of native speakers. BanglaView's silver captions are
+machine-translated then post-edited; translation artifacts may shape
+the curriculum gains. GiT-base and BLIP-base share a tokenizer, so our
+audit's coverage claims there are one measurement, not two.
+
+% =====================================================================
+\section{Conclusion}
+% =====================================================================
+
+Three walls limit Bangla image captioning --- vocabulary coverage,
+decoder depth, and data scale --- and none of them is architecture.
+Each has a cheap, reproducible mitigation: a tokenizer/embedding
+bridge, a deeper frozen decoder under QLoRA, and a silver-then-gold
+curriculum, jointly costing hours on a consumer GPU. The field could
+not see these walls because its measurement practice cannot
+distinguish a trained model from a frequency table: trivial baselines
+floor the standard metrics, the strongest published number does not
+reproduce, and the scorer itself is an unnamed free parameter. We
+offer the corrective we could build --- trivial-baseline flooring as
+mandatory practice, a specificity-corrected metric with a proven
+zero-floor, and a blinded human protocol --- and release every
+config, script, and result.
+
+% =====================================================================
+\begin{thebibliography}{99}
+\small
+
+\bibitem{chittron2019} M.~Rahman, N.~Mohammed, N.~Mansoor, S.~Momen.
+Chittron: An automatic Bangla image captioning system.
+\emph{Procedia Computer Science} 154 (2019).
+
+\bibitem{bornon2021} F.~M.~Shah, M.~Humaira, M.~A.~R.~K.~Jim,
+A.~S.~Ami, S.~Paul. Bornon: Bengali image captioning with
+transformer-based deep learning approach. \emph{SN Computer Science}
+(2021). arXiv:2109.05218.
+
+\bibitem{palash2021} M.~A.~H.~Palash et al. Bangla image caption
+generation through CNN-transformer based encoder-decoder network.
+arXiv:2110.12442 (2021).
+
+\bibitem{bancap2022} M.~F.~Khan et al. BAN-Cap: A multi-purpose
+English-Bangla image descriptions dataset. \emph{LREC} (2022).
+arXiv:2205.14462.
+
+\bibitem{bicap2025} BiCap: Bilingual image captioning for Bangla.
+\emph{BLP Workshop} (2025). aclanthology.org/2025.banglalp-1.6.
+
+\bibitem{lora2021} E.~Hu et al. LoRA: Low-rank adaptation of large
+language models. \emph{ICLR} (2022). arXiv:2106.09685.
+
+\bibitem{qlora2023} T.~Dettmers et al. QLoRA: Efficient finetuning of
+quantized LLMs. \emph{NeurIPS} (2023). arXiv:2305.14314.
+
+\bibitem{git2022} J.~Wang et al. GiT: A generative image-to-text
+transformer for vision and language. \emph{TMLR} (2022).
+arXiv:2205.14100.
+
+\bibitem{qwen2vl2024} P.~Wang et al. Qwen2-VL: Enhancing
+vision-language model's perception of the world at any resolution.
+arXiv:2409.12191 (2024).
+
+\bibitem{banglabert2022} A.~Bhattacharjee et al. BanglaBERT: Language
+model pretraining and benchmarks for low-resource language
+understanding evaluation in Bangla. \emph{Findings of NAACL} (2022).
+
+\bibitem{palo2024} M.~Maaz et al. PALO: A polyglot large multimodal
+model for 5B people. arXiv:2402.14818 (2024).
+
+\bibitem{mblip2023} G.~Geigle et al. mBLIP: Efficient bootstrapping of
+multilingual vision-LLMs. arXiv:2307.06930 (2023).
+
+\bibitem{chitrarth2025} Chitrarth: Bridging vision and language for a
+billion people. arXiv:2502.15392 (2025).
+
+\bibitem{chitranuvad2025} Chitranuvad: Adapting multi-lingual LLMs for
+multimodal translation. arXiv:2502.20420 (2025).
+
+\bibitem{kilickaya2017} M.~Kilickaya et al. Re-evaluating automatic
+metrics for image captioning. \emph{EACL} (2017).
+
+\bibitem{clipscore2021} J.~Hessel et al. CLIPScore: A reference-free
+evaluation metric for image captioning. \emph{EMNLP} (2021).
+
+\bibitem{polos2024} Y.~Wada et al. Polos: Multimodal metric learning
+from human feedback for image captioning. \emph{CVPR} (2024).
+
+\bibitem{ciderbtw2020} J.~Wang, W.~Xu, Q.~Wang, A.~B.~Chan. Compare
+and reweight: Distinctive image captioning using similar images sets.
+\emph{ECCV} (2020).
+
+\bibitem{geg2022} Y.~Zhang et al. Distinctive image captioning via
+CLIP guided group optimization. arXiv:2208.04254 (2022).
+
+\bibitem{labse2022} F.~Feng et al. Language-agnostic BERT sentence
+embedding. \emph{ACL} (2022).
+
+\bibitem{bertscore2020} T.~Zhang et al. BERTScore: Evaluating text
+generation with BERT. \emph{ICLR} (2020).
+
+\bibitem{cider2015} R.~Vedantam, C.~L.~Zitnick, D.~Parikh. CIDEr:
+Consensus-based image description evaluation. \emph{CVPR} (2015).
+
+\bibitem{bleu2002} K.~Papineni, S.~Roukos, T.~Ward, W.-J.~Zhu. BLEU: a
+method for automatic evaluation of machine translation. \emph{ACL}
+(2002).
+
+\bibitem{xm3600} A.~V.~Thapliyal et al. Crossmodal-3600: A massively
+multilingual multimodal evaluation dataset. \emph{EMNLP} (2022).
+
+\end{thebibliography}
+
+\end{document}
