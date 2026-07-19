@@ -5,6 +5,28 @@
 `configs/semantic_margin_gauntlet.yaml` · Encoder:
 `sentence-transformers/LaBSE` · BAN-Cap val, 809 images × 5 refs.
 
+## Lineage and novelty position (checked 2026-07-18)
+
+The subtract-similarity-to-other-images mechanism is published in the
+*distinctiveness* literature and must be cited, not claimed:
+
+- **CIDErBtw** (Wang et al., ECCV 2020, arXiv:2007.06877; TPAMI
+  extension arXiv:2204.03938) — caption's CIDEr similarity to similar
+  images' captions, as distinctiveness measure + training reward.
+  N-gram-based, curated similar-image sets.
+- **GEG / Group Embedding Gap** (arXiv:2208.04254) — closest match:
+  CLIP embedding similarity of caption to target image minus
+  similarity to a curated group of similar images. Cross-modal,
+  English MSCOCO, distinctiveness-only framing.
+
+Our defensible slice: (a) reference-text-side margin against the FULL
+evaluation corpus — no image encoder (unusable for Bangla per the
+M-CLIPScore result) and no curated groups; (b) framing as a general
+quality metric with the proven zero-on-no-vision-baselines property;
+(c) human-ceiling calibration and (pending) the first human-rating
+validation of any such metric for Bangla. Claim the adaptation and
+the validation, never the subtraction.
+
 ## The idea
 
 Plain embedding cosine between a hypothesis and the references (the
