@@ -1,0 +1,160 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: #f4f5f7;
+  color: #1a1d21;
+}
+
+.shell {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+}
+
+h1 {
+  font-size: 1.5rem;
+}
+
+.hint {
+  color: #6b7280;
+  font-weight: normal;
+  font-size: 0.85em;
+}
+
+.form {
+  display: grid;
+  gap: 14px;
+  margin: 20px 0;
+}
+
+.form label {
+  display: grid;
+  gap: 4px;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.form input,
+.form select {
+  padding: 10px;
+  border: 1px solid #cbd2d9;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+.progress {
+  height: 6px;
+  background: #e2e6ea;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #2563eb;
+  transition: width 0.2s;
+}
+
+.counter {
+  margin: 8px 0 16px;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.photo {
+  width: 100%;
+  max-height: 420px;
+  object-fit: contain;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #e2e6ea;
+}
+
+.caption {
+  margin: 16px 0;
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid #e2e6ea;
+  border-radius: 12px;
+  font-size: 1.35rem;
+  line-height: 1.6;
+}
+
+.scales {
+  display: grid;
+  gap: 16px;
+}
+
+fieldset {
+  border: 1px solid #e2e6ea;
+  border-radius: 12px;
+  background: #fff;
+  padding: 12px 14px;
+}
+
+legend {
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 0 6px;
+}
+
+.option {
+  display: block;
+  padding: 6px 4px;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.option input {
+  margin-right: 8px;
+}
+
+.comment {
+  width: 100%;
+  margin-top: 16px;
+  padding: 10px;
+  border: 1px solid #cbd2d9;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+.nav {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+
+button {
+  padding: 12px 22px;
+  border-radius: 10px;
+  border: none;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.primary {
+  background: #2563eb;
+  color: #fff;
+}
+
+.ghost {
+  background: transparent;
+  border: 1px solid #cbd2d9;
+  margin-right: 10px;
+}
+
+@media (max-width: 520px) {
+  .caption {
+    font-size: 1.15rem;
+  }
+}
