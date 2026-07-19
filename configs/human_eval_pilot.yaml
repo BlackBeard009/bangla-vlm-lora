@@ -1,0 +1,23 @@
+# §C3 human-eval pilot: 20 seeded-random BAN-Cap val images x 4 systems.
+# Each system contributes its best decode variant. The trivial template
+# row is the annotator attention check (should score adequacy ~1-2 on
+# most images while staying fluent).
+
+seed: 42
+n_images: 20
+images_dir: data/raw/flickr8k/Images
+output_subdir: pilot
+
+systems:
+  - name: git_img_lora
+    results_subdir: score_captions_img_lora_10k
+    variant: min8_no_early_stop
+  - name: qwen_qlora_bancap
+    results_subdir: score_qwen_qlora_bancap
+    variant: zero_shot
+  - name: qwen_curriculum
+    results_subdir: score_qwen_curriculum
+    variant: zero_shot
+  - name: trivial_mode_len
+    results_subdir: trivial_baselines_bancap
+    variant: mode_len
