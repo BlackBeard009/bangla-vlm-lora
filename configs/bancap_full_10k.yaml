@@ -1,6 +1,6 @@
 # BAN-Cap 10K-step run — same recipe as bancap_full, doubled budget.
 #
-# Motivation (CLAUDE.md "What's next" item 7): the 5K run's val curve was
+# Motivation: the 5K run's validation curve was
 # still descending at step 5,000 (Δ -0.038 over the last 500 steps).
 # Nothing else changes vs. configs/bancap_full.yaml, so the two runs are
 # directly comparable and the delta is attributable to training budget.

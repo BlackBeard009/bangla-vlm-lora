@@ -1,4 +1,4 @@
-# BAN-Cap 10K-step run WITH image-tower LoRA (CLAUDE.md item 8).
+# BAN-Cap 10K-step run with image-tower LoRA.
 #
 # Identical to configs/bancap_full_10k.yaml except the LoRA placement:
 # adds the CLIP-ViT attention projections (q_proj/k_proj/v_proj/out_proj —

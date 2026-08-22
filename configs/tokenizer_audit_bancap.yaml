@@ -8,9 +8,8 @@
 # Rationale: Wikipedia text is article-length descriptive prose;
 # BAN-Cap captions are short noun-phrase / single-action sentences.
 # Tokenizer fertility differs between these distributions (loanwords,
-# rare proper nouns, technical vocabulary, etc.). The paper plan
-# (CLAUDE.md "What's next" item) calls for this re-run on the actual
-# downstream corpus.
+# rare proper nouns, technical vocabulary, etc.). This configuration
+# reruns the audit on the actual downstream corpus.
 
 corpus:
   local_file: /content/drive/MyDrive/bangla-vlm-lora/data/raw/bancap/bn_captions_2000.txt

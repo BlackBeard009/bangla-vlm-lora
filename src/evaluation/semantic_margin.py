@@ -1,6 +1,6 @@
 """Margin-normalized semantic similarity (SemMargin) for caption evaluation.
 
-Motivation (docs/metric_validity/): plain embedding similarity between a
+Motivation: plain embedding similarity between a
 hypothesis and the references — BERTScore, SBERT cosine, M-CLIPScore —
 is gamed by generic captions, which sit near the semantic centroid of
 the whole corpus (a constant no-vision 3-word caption reaches

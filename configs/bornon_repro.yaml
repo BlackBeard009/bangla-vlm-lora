@@ -7,7 +7,7 @@
 # B3 0.476 / B4 0.408.
 #
 # Unstated in the paper, set to Vaswani/TF-tutorial defaults here
-# (documented in docs/metric_validity/bornon_reproduction.md):
+# for the metric-validity reproduction:
 # d_model 512, dff 2048, dropout 0.1, greedy decode, startseq/endseq
 # sentinels, sinusoidal positions on text only.
 

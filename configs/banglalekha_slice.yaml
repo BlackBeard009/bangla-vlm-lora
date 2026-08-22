@@ -16,7 +16,7 @@ model:
 bridge:
   donor_tokenizer: csebuetnlp/banglabert
   donor_model_for_init: csebuetnlp/banglabert
-  init_strategy: donor   # donor edges out mean/random per docs/results/git_bridged_ablation
+  init_strategy: donor   # Selected for the vocabulary-bridging experiment.
 
 lora:
   rank: 8

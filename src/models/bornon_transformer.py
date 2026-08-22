@@ -4,7 +4,7 @@ Bornon (Shah et al., arXiv:2109.05218) — the strongest published
 BanglaLekha number (corpus BLEU-4 0.408, Table 2, 3 layers / 1 head).
 No code was released; this module reimplements the architecture from
 the paper's stated specification for the metric-validity reproduction
-study (docs/metric_validity/bornon_reproduction.md).
+study.
 
 Stated in the paper (Sections 5, 6, 10):
   - InceptionV3, softmax head removed, 299x299 input, 8x8x2048 feature

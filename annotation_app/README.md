@@ -1,29 +1,28 @@
-# Bangla caption human-eval annotation app
+# Bangla image-caption human-evaluation pilot
 
-React SPA for the §C3 human-evaluation pilot. Shows the blinded
-(image, caption) pairs one at a time; collects reviewer info
-(name/email for uniqueness, native-speaker status) and adequacy +
-fluency ratings (1–5 Likert, anchors from the pilot README). Progress
-persists in localStorage; at the end the reviewer downloads a
-`pilot_ratings_<email>.csv` and sends it back. No backend — ratings
-never leave the reviewer's machine until they export.
+This directory contains a small React application for blinded, pairwise presentation of image--caption items in the Bangla captioning pilot. Reviewers score each caption for **adequacy** and **fluency** on 1--5 scales.
 
-## Refresh data (after rebuilding the pilot pack)
+The application has no backend. Progress is kept in the browser's `localStorage`; at completion, the reviewer downloads a CSV file to return to the study team. The generated CSV may contain reviewer-provided identifying fields, so it should be handled as study data rather than committed to Git.
+
+The pilot pack is configured as 20 sampled BAN-Cap validation images × 4 systems. It is a pilot instrument, not a validated benchmark.
+
+## Prepare the app data
+
+After building a pilot pack, export its static data:
 
 ```bash
 python scripts/export_pilot_webapp_data.py
-# -> annotation_app/public/{data.json, images/}   (gitignored)
 ```
 
-## Run / build
+This writes `public/data.json` and `public/images/`. Both are ignored by Git because they are generated from the local pilot pack.
+
+## Develop and build
 
 ```bash
 cd annotation_app
 npm install
-npm run dev       # local dev
-npm run build     # -> dist/ (static, works from any subpath)
+npm run dev
+npm run build
 ```
 
-Deploy `dist/` to any static host (Netlify/Vercel/GitHub Pages) or
-share over LAN with `npm run preview`. The returned CSVs feed the
-scoring script (metric-vs-human correlation table).
+`npm run build` creates `dist/`, which can be hosted as a static site or served locally with `npm run preview`.

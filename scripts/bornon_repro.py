@@ -1,6 +1,6 @@
 """Reproduce the Bornon transformer captioner on BanglaLekha.
 
-Metric-validity study (docs/metric_validity/bornon_reproduction.md):
+Metric-validity reproduction:
 train the published recipe (arXiv:2109.05218, Table 2 best BanglaLekha
 row: 3 layers / 1 head, corpus BLEU-4 0.408) from the paper's stated
 specification, then score the SAME trained model three ways:

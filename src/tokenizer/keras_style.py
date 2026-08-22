@@ -1,7 +1,6 @@
 """Minimal reimplementation of Keras's ``Tokenizer`` word-level behavior.
 
-Needed for the Bornon reproduction (docs/metric_validity/
-bornon_reproduction.md): the paper tokenizes captions with "Keras's
+Needed for the Bornon reproduction. The paper tokenizes captions with "Keras's
 text tokenizer" and a top-5,000-word vocabulary. The protocol-relevant
 quirks reproduced here, matching tf.keras.preprocessing.text.Tokenizer:
 

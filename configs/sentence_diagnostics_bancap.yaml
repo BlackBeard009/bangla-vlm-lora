@@ -2,9 +2,9 @@
 # Companion to configs/sentence_diagnostics.yaml — identical decode and
 # test schedule, only the corpus + adapter change. Lets us produce a
 # direct apples-to-apples comparison with the BanglaLekha diagnostics
-# (docs/results/banglalekha_full/sentence_diagnostics.md).
+# and applies the same diagnostics to the BAN-Cap adapter.
 #
-# Expected outcomes (per docs/SESSION_HANDOFF.md):
+# Expected outcomes:
 #   Test 1 (image_scrambling) — Jaccard probably higher than BanglaLekha;
 #     content-token agreement under `shuffled` should be the clearest
 #     signal that the model uses image content.

@@ -2,7 +2,7 @@
 
 The contrast experiment to the GiT bridge chain: Qwen2-VL's tokenizer
 already covers Bangla, yet the instruct model produces zero Bangla
-zero-shot (see docs/results/bancap_metrics/README.md). This run asks:
+zero-shot. This run asks:
 does plain LoRA on the LLM attention projections unlock the Bangla the
 vocabulary already covers — no tokenizer surgery, no embedding bridge?
 
