@@ -4,6 +4,12 @@ This repository contains the experimental code for a study of parameter-efficien
 
 The experiments include a controlled GiT vocabulary-bridging ablation, Qwen2-VL-2B QLoRA baselines, a silver-to-gold curriculum, automatic evaluation on BAN-Cap, and a small blinded human-evaluation pilot.
 
+## Method overview
+
+![Method overview: (a) vocabulary bridge for GiT, (b) parameter-efficient adaptation of GiT and Qwen2-VL-2B, (c) silver-to-gold curriculum and assessment](assets/method_overview.png)
+
+**(a)** GiT's WordPiece vocabulary is extended with BanglaBERT wordpieces; the input-embedding and LM-head matrices are resized, and the new rows are initialized randomly, from the mean, or from donor embeddings. **(b)** The bridged GiT is adapted with LoRA on the text-decoder `q,k,v` projections while the resized embeddings and head are trained; Qwen2-VL-2B already represents Bangla and is adapted with 4-bit QLoRA. **(c)** The adapter is trained on silver BanglaView captions, then on native BAN-Cap captions, decoded with one fixed configuration, and scored with automatic metrics and human ratings. The figure shows design settings only, not results. Example image from Flickr8k.
+
 ## Main findings
 
 1. **Vocabulary coverage is a concrete bottleneck for an English-tokenized captioner.** On 2,000 BAN-Cap Bangla captions, extending GiT's tokenizer with BanglaBERT wordpieces reduced mean tokenizer fertility from **4.155** to **1.176** tokens per Bangla token and increased round-trip recovery from **78.20%** to **91.18%**.
@@ -31,6 +37,7 @@ src/              Reusable data, model, tokenizer, training, and evaluation code
 scripts/          Command-line entry points
 notebooks/        Colab-oriented setup and orchestration
 annotation_app/   Static React app for the blinded human-evaluation pilot
+assets/           README figures
 paths.py          Central resolver for datasets, checkpoints, and run outputs
 ```
 
